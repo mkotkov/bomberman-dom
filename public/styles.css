@@ -1,0 +1,134 @@
+/* styles.css */
+
+/* Общие стили для всего приложения */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Стили для страницы ожидания */
+.waiting-page {
+    text-align: center;
+    padding: 20px;
+    border: 2px solid #007bff;
+    border-radius: 10px;
+    background-color: #ffffff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.waiting-page h1 {
+    margin-bottom: 20px;
+    color: #007bff;
+}
+
+.waiting-page p {
+    margin: 10px 0;
+}
+
+/* Стили для игрового экрана */
+.game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.game h1 {
+    margin-bottom: 20px;
+}
+
+.game .player {
+    margin: 5px;
+    padding: 10px;
+    border: 1px solid #007bff;
+    border-radius: 5px;
+    background-color: #e7f1ff;
+}
+
+/* Стили для кнопок */
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+input[type="text"] {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    width: 80%;
+}
+
+
+
+.game-map {
+    position: relative;
+    width: 520px; /* 13 * 40px */
+    height: 520px; /* 13 * 40px */
+    border: 2px solid #333;
+    display: grid;
+    grid-template-rows: repeat(13, 40px);
+    grid-template-columns: repeat(13, 40px);
+}
+
+.row {
+    display: contents; /* Позволяет дочерним элементам занимать ячейки сетки */
+}
+
+.wall {
+    background-color: #8B4513; /* Коричневый для неразрушаемых стен */
+}
+
+.block {
+    background-color: #A52A2A; /* Красный для разрушаемых блоков */
+}
+
+.empty {
+    background-color: #fff; /* Белый для пустых клеток */
+}
+
+.player {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background-color: blue; /* Цвет игрока */
+    border-radius: 50%; /* Для округлых игроков */
+}
+
+
+
+.player-1 {
+    background-color: blue; /* Цвет для первого игрока */
+}
+
+.player-2 {
+    background-color: red; /* Цвет для второго игрока */
+}
+
+.player-3 {
+    background-color: green; /* Цвет для третьего игрока */
+}
+
+.player-4 {
+    background-color: yellow; /* Цвет для четвертого игрока */
+}
+
