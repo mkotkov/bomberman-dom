@@ -1,0 +1,72 @@
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f0f0;
+}
+#game {
+    width: 640px;
+    height: 640px; 
+    background-color: #fff;
+    border: 2px solid #000;
+    position: relative;
+    overflow: hidden;
+}
+.player {
+    width: 40px;
+    height: 40px;
+    background-color: rgb(0, 0, 0);
+    position: absolute;
+    transition: left 0.1s, top 0.1s;
+    z-index: 9999;
+}
+.map-container {
+    position: relative;
+    width: 640px;  /* пример ширины */
+    height: 640px; /* пример высоты */
+}
+
+.tile {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+}
+
+.block {
+    background-color: brown;
+}
+
+.wall {
+    background-color: gray;
+}
+
+.grass {
+   
+}
+
+.bomb {
+    background-color: yellow; /* Цвет бомбы */
+    width: 40px;
+    height: 40px;
+    position: absolute;
+}
+
+.tile.explosion {
+    background-color: orange;
+    opacity: 0.9;
+    z-index: 10;
+    animation: explosion 0.5s ease-out forwards;
+}
+
+@keyframes explosion {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(2);
+    }
+}
