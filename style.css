@@ -47,10 +47,18 @@ body {
 }
 
 .bomb {
-    background-color: yellow; /* Цвет бомбы */
+    background-color: rgb(22, 18, 68);
     width: 40px;
     height: 40px;
     position: absolute;
+    z-index: 5;
+    animation: blink 0.5s infinite alternate;
+    border-radius: 1rem;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    100% { opacity: 0.5; }
 }
 
 .tile.explosion {
@@ -61,12 +69,6 @@ body {
 }
 
 @keyframes explosion {
-    0% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    100% {
-        opacity: 0;
-        transform: scale(2);
-    }
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(2); }
 }

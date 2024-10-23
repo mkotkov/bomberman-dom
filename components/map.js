@@ -1,50 +1,19 @@
 import { createElement } from "../core/dom.js";
 
 export class Map {
-    constructor(container) {
+    constructor(container, mapData) {
         this.container = container;
         this.tiles = [];
-        this.mapData = this.generateMap();
+        this.mapData = mapData;
         this.render();
     }
 
-    generateMap() {
-        // Генерация карты с фиксированными разрушаемыми стенами и случайными неразрушаемыми стенами
-        const map = [
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-            [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-            [1, 0, 1, 2, 0, 1, 0, 1, 2, 1, 0, 1, 0, 1, 0, 1],
-            [0, 0, 0, 0, 2, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0],
-            [1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [0, 2, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 2, 0],
-            [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-            [0, 0, 2, 2, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0],
-            [1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1],
-            [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-            [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-            [1, 1, 2, 1, 1, 1, 2, 1, 1, 0, 1, 1, 2, 1, 1, 1],
-            [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-            [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ];
-
-        // Случайная генерация неразрушаемых стен
-        for (let i = 0; i < map.length; i++) {
-            for (let j = 0; j < map[i].length; j++) {
-                // Генерируем неразрушаемую стену с вероятностью 10%
-                if (Math.random() < 0.1 && map[i][j] === 0) {
-                    map[i][j] = 2; // Неразрушаемая стена
-                }
-            }
-        }
-        return map;
-    }
-
     render() {
+        this.tiles = []; // Очищаем массив тайлов
+
         this.mapData.forEach((row, rowIndex) => {
             row.forEach((tile, colIndex) => {
-                const tileType = tile === 1 ? 'block' : tile === 2 ? 'wall' : tile === 0 ? 'grass' : 'empty';
+                const tileType = tile === 1 ? 'block' : tile === 2 ? 'wall' : 'grass';
                 const tileElement = createElement('div', {
                     class: `tile ${tileType}`,
                     style: {
@@ -58,6 +27,28 @@ export class Map {
             });
         });
     }
+
+    renderPlayer(playerIndex, x, y) {
+        // Удаляем старый элемент игрока, если он уже существует
+        const existingPlayer = this.container.querySelector(`.player[data-index="${playerIndex}"]`);
+        if (existingPlayer) {
+            existingPlayer.style.left = `${x}px`;
+            existingPlayer.style.top = `${y}px`;
+        } else {
+            // Если игрока еще нет на карте, добавляем нового
+            const playerElement = createElement('div', {
+                class: 'player',
+                'data-index': playerIndex,
+                style: {
+                    left: `${x}px`,
+                    top: `${y}px`,
+                }
+            });
+    
+            this.container.appendChild(playerElement);
+        }
+    }
+
 
     destroyWall(col, row) {
         if (this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1) {

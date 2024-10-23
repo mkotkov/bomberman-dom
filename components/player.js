@@ -10,13 +10,17 @@ export class Player {
         this.updatePosition();
     }
 
+    setPosition(x, y) {
+        this.x = x;
+        this.y = y;
+        this.updatePosition();
+    }
+
     placeBomb() {
         const col = Math.floor(this.x / 40);
         const row = Math.floor(this.y / 40);
-    
         new Bomb(col, row, 1, this.gameMap);
     }
-    
 
     updatePosition() {
         this.element.style.left = `${this.x}px`;
@@ -26,7 +30,7 @@ export class Player {
     move(direction) {
         let newX = this.x;
         let newY = this.y;
-
+    
         switch (direction) {
             case 'ArrowUp':
                 newY -= this.speed;
@@ -40,13 +44,12 @@ export class Player {
             case 'ArrowRight':
                 newX += this.speed;
                 break;
+            default:
+                return; // Если направление не распознано, выходим из функции
         }
-
-        // Проверяем, можно ли перемещаться
-        if (this.gameMap.isTileWalkable(newX, newY)) {
-            this.x = newX;
-            this.y = newY;
-        }
-        this.updatePosition();
+    
+        // Проверка границ карты и препятствий может быть здесь
+        this.setPosition(newX, newY); // Обновляем позицию игрока
     }
+    
 }
