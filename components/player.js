@@ -47,9 +47,10 @@ export class Player {
             default:
                 return; // Если направление не распознано, выходим из функции
         }
-    
-        // Проверка границ карты и препятствий может быть здесь
-        this.setPosition(newX, newY); // Обновляем позицию игрока
+        
+        if (this.gameMap.isPassable(newX, newY)) {
+            this.setPosition(newX, newY); // Обновляем позицию игрока
+        }
     }
     
 }

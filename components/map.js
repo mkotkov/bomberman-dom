@@ -78,10 +78,21 @@ export class Map {
         const row = Math.floor(y / 40);
         const col = Math.floor(x / 40);
         if (this.isWithinMapBounds(col, row)) {
-            // Проходимыми считаются только пустые клетки (0)
             return this.mapData[row][col] === 0; // Проходимость только для травы
         }
         return false; // За пределами карты
+    }
+
+
+    isPassable(x, y) {
+        const col = Math.floor(x / 40);
+        const row = Math.floor(y / 40);
+
+        // Проверяем, находится ли клетка в пределах карты и является ли она проходимой
+        if (row < 0 || row >= this.mapData.length || col < 0 || col >= this.mapData[row].length) {
+            return false; // Вне границ карты
+        }
+        return this.mapData[row][col] === 0; // 0 - проходимая клетка, 1 - разрушаемая стена, 2 - неразрушаемая стена
     }
 
     canDestroyTile(col, row) {
@@ -89,3 +100,4 @@ export class Map {
         return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1;
     }
 }
+

@@ -5,9 +5,12 @@ import { on } from './core/events.js';
 let player;
 let ws;
 let sessionId;
+let gameMap = {};
+const mapContainer = document.getElementById('game');
+
 
 function initializeWebSocket() {
-    ws = new WebSocket('https://opulent-xylophone-7vqj75wvr6rfxgjx-8080.app.github.dev/'); // Убедитесь, что URL правильный
+    ws = new WebSocket('ws://localhost:8080'); // Убедитесь, что URL правильный
 
     ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'getActiveSessions' }));
@@ -15,6 +18,18 @@ function initializeWebSocket() {
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        console.log("Received data:", data);
+        if (data.startingPosition) {
+            player.setPosition(data.startingPosition.x, data.startingPosition.y);
+        } else {
+            console.error("Starting position not found in data.");
+        }
+        
+
+        if (data.type === 'mapUpdate') {
+            console.log(`Update gameMap: ${data.map}`);
+            gameMap = new Map(mapContainer, data.map);
+        }
 
         if (data.type === 'activeSessions') {
             handleActiveSessions(data.sessions);
@@ -23,16 +38,17 @@ function initializeWebSocket() {
         if (data.type === 'gameCreated' || data.type === 'joinedExistingGame') {
             console.log(`Joined game with session ID: ${data.sessionId}`);
             sessionId = data.sessionId;
+
         
             // Предполагается, что data содержит playerIndex и startingPosition
-            player = new Player(document.createElement('div'), 40, gameMap); // Передайте необходимые параметры
+            const map = new Map (mapContainer, data.map)
+            player = new Player(document.createElement('div'), 40, map); // Передайте необходимые параметры
             player.setPosition(data.startingPosition.x, data.startingPosition.y);
         }
         
 
         if (data.type === 'playerPosition') {
-            const mapContainer = document.getElementById('game');
-            const gameMap = new Map(mapContainer, data.map);
+            gameMap = new Map(mapContainer, data.map);
             // Создаем игроков на карте
             data.players.forEach(p => {
                 gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y);
@@ -77,15 +93,19 @@ on(document, 'keydown', (event) => {
     if (player) {
         const oldPosition = { x: player.x, y: player.y }; // Сохраняем старую позицию
         player.move(event.key);
+
         if (event.key === ' ') {
             player.placeBomb();
         }
-        
-        // Отправляем новое положение игрока
+
+        // Отправляем новое положение игрока на сервер, если оно изменилось
         if (oldPosition.x !== player.x || oldPosition.y !== player.y) {
             ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } }));
         }
     }
 });
 
-initializeWebSocket();
+
+document.addEventListener("DOMContentLoaded", () => {
+    initializeWebSocket();
+ });

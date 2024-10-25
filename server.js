@@ -12,6 +12,7 @@ class GameSession {
         this.id = id;
         this.maxPlayers = maxPlayers;
         this.players = [];
+        this.positions = []; // Инициализируем positions
         console.log(`Creating GameSession with id: ${id}`);
         this.mapData = this.generateMap();
         console.log('Map Data:', this.mapData);
@@ -54,17 +55,32 @@ class GameSession {
         if (this.players.length < this.maxPlayers) {
             this.players.push(player);
             const playerIndex = this.players.length - 1;
-
+    
             // Используем фиксированную позицию из массива
             const position = startingPositions[playerIndex];
-
+            this.positions[playerIndex] = position; // Сохраняем начальную позицию
+            console.log('PlayerId Data:', playerIndex);
+            console.log('Position Data:', position);
+    
+            // Отправляем данные с ожидаемым полем startingPosition
             player.send(JSON.stringify({
                 type: 'playerPosition',
+                startingPosition: position,
                 position: { playerIndex: playerIndex + 1, position },
-                map: this.mapData,
+                map: this.mapData, // Это все еще необработанные данные карты
                 players: this.getPlayersPositions(),
             }));
-
+    
+            // Отправляем обновленные данные карты всем игрокам
+            this.players.forEach(p => {
+                if (p !== player) {
+                    p.send(JSON.stringify({
+                        type: 'mapUpdate',
+                        map: this.mapData, // Отправляем обновленную карту всем игрокам
+                    }));
+                }
+            });
+    
             if (this.players.length === this.maxPlayers) {
                 this.startGame();
             }
@@ -72,6 +88,8 @@ class GameSession {
             player.send(JSON.stringify({ type: 'error', message: 'Game is full' }));
         }
     }
+    
+    
 
     startGame() {
         this.players.forEach((player, index) => {
@@ -114,33 +132,44 @@ const gameSessions = [];
 wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         const data = JSON.parse(message);
-
+    
         if (data.type === 'createOrJoinGame') {
             let session = gameSessions.find(session => session.players.length < session.maxPlayers);
-
+    
             if (!session) {
                 const sessionId = gameSessions.length + 1;
-                session = new GameSession(sessionId); // Ensure this line runs without issues
+                session = new GameSession(sessionId);
                 gameSessions.push(session);
-                ws.send(JSON.stringify({ type: 'gameCreated', sessionId }));
+                ws.sessionId = sessionId;  // Сохраняем sessionId для игрока
+                ws.send(JSON.stringify({ type: 'gameCreated', sessionId, map: session.mapData}));
             } else {
-                ws.send(JSON.stringify({ type: 'joinedExistingGame', sessionId: session.id }));
+                ws.sessionId = session.id;  // Сохраняем sessionId для игрока
+                ws.send(JSON.stringify({ type: 'joinedExistingGame', sessionId: session.id, map: session.mapData }));
             }
-
+    
             session.addPlayer(ws);
         }
-
+    
         if (data.type === 'movePlayer') {
             // Обработка перемещения игрока
-            const { newPosition } = data; // Предполагается, что newPosition передается от клиента
-            session.updatePlayerPosition(ws, newPosition);
+            const { newPosition } = data;
+            
+            // Найдите сессию игрока по sessionId
+            const session = gameSessions.find(session => session.id === ws.sessionId);
+            
+            if (session) {
+                session.updatePlayerPosition(ws, newPosition);
+            } else {
+                console.error('Session not found for player');
+            }
         }
-
+    
         if (data.type === 'getActiveSessions') {
             const availableSessions = gameSessions.filter(session => session.players.length < session.maxPlayers);
             ws.send(JSON.stringify({ type: 'activeSessions', sessions: availableSessions.map(session => session.id) }));
         }
     });
+    
 
     ws.on('close', () => {
         console.log('Player disconnected');
