@@ -1,10 +1,11 @@
 import { createElement } from "../core/dom.js";
 
 export class Map {
-    constructor(container, mapData) {
+    constructor(container, mapData, ws) { // Добавляем ws как параметр конструктора
         this.container = container;
-        this.tiles = [];
         this.mapData = mapData;
+        this.ws = ws; // Сохраняем WebSocket для использования в методах
+        this.tiles = [];
         this.render();
     }
 
@@ -29,13 +30,11 @@ export class Map {
     }
 
     renderPlayer(playerIndex, x, y) {
-        // Удаляем старый элемент игрока, если он уже существует
         const existingPlayer = this.container.querySelector(`.player[data-index="${playerIndex}"]`);
         if (existingPlayer) {
             existingPlayer.style.left = `${x}px`;
             existingPlayer.style.top = `${y}px`;
         } else {
-            // Если игрока еще нет на карте, добавляем нового
             const playerElement = createElement('div', {
                 class: 'player',
                 'data-index': playerIndex,
@@ -44,32 +43,37 @@ export class Map {
                     top: `${y}px`,
                 }
             });
-    
+
             this.container.appendChild(playerElement);
         }
     }
 
-
     destroyWall(col, row) {
-        if (this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1) {
-            console.log(`Destroying wall at (${col}, ${row})`);
-            // Если тайл — разрушаемая стена
-            this.mapData[row][col] = 0; // Удаляем стену (пустая клетка)
+        if (this.canDestroyTile(col, row)) {
+            this.mapData[row][col] = 0; // Обновляем карту на стороне клиента
             
-            // Находим соответствующий элемент на экране и меняем его класс на "трава"
+            // Обновляем отображение на экране
             const tileIndex = row * this.mapData[0].length + col;
             if (this.tiles[tileIndex]) {
-                console.log(`Tile index: ${tileIndex}, element found`);
                 this.tiles[tileIndex].classList.remove('block');
-                this.tiles[tileIndex].classList.add('grass'); // Меняем на пустой тайл (трава)
-            } else {
-                console.log(`Tile element not found at index: ${tileIndex}`);
+                this.tiles[tileIndex].classList.add('grass');
             }
-        } else {
-            console.log(`Invalid wall destruction attempt at (${col}, ${row})`);
+            
+            if (this.mapData[y][x] === 2) {
+                this.mapData[y][x] = 0; // Изменяем на пустую клетку
+                this.render(); // Перерисовываем карту
+            }
+            // Отправляем сообщение серверу о разрушении стены
+            if (this.ws) {
+                this.ws.send(JSON.stringify({
+                    type: 'updateMap',
+                    position: { x: col, y: row },
+                    newValue: 0
+                }));
+            }
         }
     }
-    
+
     isWithinMapBounds(col, row) {
         return row >= 0 && row < this.mapData.length && col >= 0 && col < this.mapData[row].length;
     }
@@ -77,27 +81,16 @@ export class Map {
     isTileWalkable(x, y) {
         const row = Math.floor(y / 40);
         const col = Math.floor(x / 40);
-        if (this.isWithinMapBounds(col, row)) {
-            return this.mapData[row][col] === 0; // Проходимость только для травы
-        }
-        return false; // За пределами карты
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0;
     }
-
 
     isPassable(x, y) {
         const col = Math.floor(x / 40);
         const row = Math.floor(y / 40);
-
-        // Проверяем, находится ли клетка в пределах карты и является ли она проходимой
-        if (row < 0 || row >= this.mapData.length || col < 0 || col >= this.mapData[row].length) {
-            return false; // Вне границ карты
-        }
-        return this.mapData[row][col] === 0; // 0 - проходимая клетка, 1 - разрушаемая стена, 2 - неразрушаемая стена
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0;
     }
 
     canDestroyTile(col, row) {
-        // Проверяем, можно ли разрушить тайл (только разрушаемые стены)
         return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1;
     }
 }
-

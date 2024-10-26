@@ -1,5 +1,6 @@
 import { Map } from './components/map.js';
-import { Player } from './components/player.js'; // Импорт класса Player
+import { Player } from './components/player.js'; 
+import { Bomb } from './components/bomb.js'; 
 import { on } from './core/events.js';
 
 let player;
@@ -27,8 +28,10 @@ function initializeWebSocket() {
         
 
         if (data.type === 'mapUpdate') {
-            console.log(`Update gameMap: ${data.map}`);
-            gameMap = new Map(mapContainer, data.map);
+        const { x, y, newValue } = data;
+        gameMap.mapData[y][x] = newValue; // Обновляем данные карты
+        gameMap.destroyWall(x, y); // Обновляем визуально
+        gameMap.render(); 
         }
 
         if (data.type === 'activeSessions') {
@@ -36,13 +39,11 @@ function initializeWebSocket() {
         }
 
         if (data.type === 'gameCreated' || data.type === 'joinedExistingGame') {
-            console.log(`Joined game with session ID: ${data.sessionId}`);
             sessionId = data.sessionId;
 
-        
-            // Предполагается, что data содержит playerIndex и startingPosition
-            const map = new Map (mapContainer, data.map)
-            player = new Player(document.createElement('div'), 40, map); // Передайте необходимые параметры
+            // Создаем экземпляр карты с WebSocket
+            const map = new Map(mapContainer, data.map, ws);
+            player = new Player(document.createElement('div'), 40, map, ws);
             player.setPosition(data.startingPosition.x, data.startingPosition.y);
         }
         
@@ -53,6 +54,11 @@ function initializeWebSocket() {
             data.players.forEach(p => {
                 gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y);
             });
+        }
+
+        if (data.type === 'bombPlaced') {
+            // Создаем бомбу и запускаем таймер взрыва для всех игроков
+            new Bomb(data.position.x, data.position.y, data.radius, gameMap);
         }
 
         if (data.type === 'updatePlayerPosition') {

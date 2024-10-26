@@ -1,10 +1,11 @@
 import { Bomb } from "./bomb.js";
 
 export class Player {
-    constructor(element, speed, gameMap) {
+    constructor(element, speed, gameMap, ws) { // Добавляем ws как параметр
         this.element = element;
         this.speed = speed;
         this.gameMap = gameMap;
+        this.ws = ws; // Сохраняем ws для использования в методах
         this.x = 0;
         this.y = 0;
         this.updatePosition();
@@ -19,7 +20,15 @@ export class Player {
     placeBomb() {
         const col = Math.floor(this.x / 40);
         const row = Math.floor(this.y / 40);
-        new Bomb(col, row, 1, this.gameMap);
+        const bomb = new Bomb(col, row, 1, this.gameMap);
+
+        // Отправляем событие установки бомбы на сервер
+        if (this.ws) {
+            this.ws.send(JSON.stringify({
+                type: 'placeBomb',
+                position: { x: col, y: row }
+            }));
+        }
     }
 
     updatePosition() {
@@ -30,7 +39,7 @@ export class Player {
     move(direction) {
         let newX = this.x;
         let newY = this.y;
-    
+
         switch (direction) {
             case 'ArrowUp':
                 newY -= this.speed;
@@ -45,12 +54,20 @@ export class Player {
                 newX += this.speed;
                 break;
             default:
-                return; // Если направление не распознано, выходим из функции
+                return;
         }
         
         if (this.gameMap.isPassable(newX, newY)) {
-            this.setPosition(newX, newY); // Обновляем позицию игрока
+            const oldPosition = { x: this.x, y: this.y };
+            this.setPosition(newX, newY);
+
+            // Отправляем событие перемещения на сервер
+            if (this.ws && (oldPosition.x !== this.x || oldPosition.y !== this.y)) {
+                this.ws.send(JSON.stringify({
+                    type: 'movePlayer',
+                    newPosition: { x: this.x, y: this.y }
+                }));
+            }
         }
     }
-    
 }

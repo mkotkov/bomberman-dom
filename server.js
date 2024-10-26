@@ -1,10 +1,10 @@
 const WebSocket = require('ws');
 
 const startingPositions = [
-    { x: 40, y: 40 },       // Верхний левый угол
-    { x: 600, y: 40 },      // Верхний правый угол
-    { x: 40, y: 600 },      // Нижний левый угол
-    { x: 600, y: 600 },     // Нижний правый угол
+    { x: 40, y: 40 },       
+    { x: 600, y: 40 },      
+    { x: 40, y: 600 },      
+    { x: 600, y: 600 },     
 ];  
 
 class GameSession {
@@ -12,14 +12,13 @@ class GameSession {
         this.id = id;
         this.maxPlayers = maxPlayers;
         this.players = [];
-        this.positions = []; // Инициализируем positions
+        this.positions = [];
         console.log(`Creating GameSession with id: ${id}`);
         this.mapData = this.generateMap();
         console.log('Map Data:', this.mapData);
     }
 
     generateMap() {
-        // Генерация карты с фиксированными разрушаемыми стенами и случайными неразрушаемыми стенами
         const map = [
             [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
             [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
@@ -67,7 +66,7 @@ class GameSession {
                 type: 'playerPosition',
                 startingPosition: position,
                 position: { playerIndex: playerIndex + 1, position },
-                map: this.mapData, // Это все еще необработанные данные карты
+                map: this.mapData,
                 players: this.getPlayersPositions(),
             }));
     
@@ -76,7 +75,7 @@ class GameSession {
                 if (p !== player) {
                     p.send(JSON.stringify({
                         type: 'mapUpdate',
-                        map: this.mapData, // Отправляем обновленную карту всем игрокам
+                        map: this.mapData,
                     }));
                 }
             });
@@ -89,7 +88,20 @@ class GameSession {
         }
     }
     
-    
+
+    destroyWall(x, y) {
+        // Обновление карты на сервере
+        this.mapData[y][x] = 0;
+
+        // Рассылка обновлений карты всем игрокам
+        const updateMessage = JSON.stringify({
+            type: 'mapUpdate',
+            position: { x, y },
+            newValue: 0
+        });
+        this.players.forEach(player => player.ws.send(updateMessage));
+        this.broadcastToPlayers(updateMessage);
+    }
 
     startGame() {
         this.players.forEach((player, index) => {
@@ -124,6 +136,14 @@ class GameSession {
             });
         }
     }
+
+    broadcastToPlayers(message) {
+        this.players.forEach(player => {
+            if (player.ws && player.ws.readyState === WebSocket.OPEN) {
+                player.ws.send(JSON.stringify(message));
+            }
+        });
+    }
 }
 
 const wss = new WebSocket.Server({ port: 8080 });
@@ -149,7 +169,24 @@ wss.on('connection', (ws) => {
     
             session.addPlayer(ws);
         }
+        
+        if (data.type === 'updateMap') {
+            const mapUpdate = {
+                type: 'mapUpdate',
+                position: data.position,
+                newValue: data.newValue
+            };
     
+            // Найдите сессию игрока по sessionId
+            const session = gameSessions.find(session => session.id === ws.sessionId);
+            
+            if (session) {
+                session.players.forEach(player => player.send(JSON.stringify(mapUpdate)));
+            } else {
+                console.error('Session not found for updateMap');
+            }
+        }
+
         if (data.type === 'movePlayer') {
             // Обработка перемещения игрока
             const { newPosition } = data;
@@ -164,6 +201,26 @@ wss.on('connection', (ws) => {
             }
         }
     
+        if (data.type === 'placeBomb') {
+            // Пересылаем данные о новой бомбе всем игрокам в сессии
+            const bombData = {
+                type: 'bombPlaced',
+                position: data.position,
+                radius: data.radius
+            };
+        
+            // Найдите сессию игрока по sessionId
+            const session = gameSessions.find(session => session.id === ws.sessionId);
+            
+            // Проверьте, что сессия существует перед отправкой данных
+            if (session) {
+                session.players.forEach(player => player.send(JSON.stringify(bombData)));
+            } else {
+                console.error('Session not found for placing bomb');
+            }
+        }
+        
+
         if (data.type === 'getActiveSessions') {
             const availableSessions = gameSessions.filter(session => session.players.length < session.maxPlayers);
             ws.send(JSON.stringify({ type: 'activeSessions', sessions: availableSessions.map(session => session.id) }));
@@ -173,6 +230,19 @@ wss.on('connection', (ws) => {
 
     ws.on('close', () => {
         console.log('Player disconnected');
+        const session = gameSessions.find(session => session.id === ws.sessionId);
+        if (session) {
+            session.players = session.players.filter(player => player !== ws);
+            session.positions = session.positions.filter((_, index) => index !== session.players.indexOf(ws));
+    
+            // Отправляем всем оставшимся игрокам обновлённую информацию
+            session.players.forEach(p => {
+                p.send(JSON.stringify({
+                    type: 'playerDisconnected',
+                    playerId: ws.sessionId, // Можно использовать другой идентификатор
+                }));
+            });
+        }
     });
 });
 
