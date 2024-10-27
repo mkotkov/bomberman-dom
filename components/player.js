@@ -1,11 +1,11 @@
 import { Bomb } from "./bomb.js";
 
 export class Player {
-    constructor(element, speed, gameMap, ws) { // Добавляем ws как параметр
+    constructor(element, speed, gameMap, ws) { // Adding ws as a parameter
         this.element = element;
         this.speed = speed;
         this.gameMap = gameMap;
-        this.ws = ws; // Сохраняем ws для использования в методах
+        this.ws = ws; // Storing ws for use in methods
         this.x = 0;
         this.y = 0;
         this.updatePosition();
@@ -22,7 +22,7 @@ export class Player {
         const row = Math.floor(this.y / 40);
         const bomb = new Bomb(col, row, 1, this.gameMap);
 
-        // Отправляем событие установки бомбы на сервер
+        // Sending bomb placement event to the server
         if (this.ws) {
             this.ws.send(JSON.stringify({
                 type: 'placeBomb',
@@ -58,16 +58,7 @@ export class Player {
         }
         
         if (this.gameMap.isPassable(newX, newY)) {
-            const oldPosition = { x: this.x, y: this.y };
             this.setPosition(newX, newY);
-
-            // Отправляем событие перемещения на сервер
-            if (this.ws && (oldPosition.x !== this.x || oldPosition.y !== this.y)) {
-                this.ws.send(JSON.stringify({
-                    type: 'movePlayer',
-                    newPosition: { x: this.x, y: this.y }
-                }));
-            }
         }
     }
 }

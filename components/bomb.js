@@ -1,13 +1,13 @@
 export class Bomb {
     constructor(x, y, radius = 1, mapInstance) {
-        this.x = x; // Позиция по X
-        this.y = y; // Позиция по Y
-        this.radius = radius; // Радиус взрыва
-        this.mapInstance = mapInstance; // Ссылка на карту
+        this.x = x; // X position
+        this.y = y; // Y position
+        this.radius = radius; // Explosion radius
+        this.mapInstance = mapInstance; // Reference to the map
 
-        this.renderBomb(); // Отображение бомбы на карте
+        this.renderBomb(); // Render bomb on the map
 
-        // Таймер взрыва
+        // Explosion timer
         this.timer = setTimeout(() => this.explode(), 3000);
     }
 
@@ -15,22 +15,22 @@ export class Bomb {
         const tileIndex = this.y * this.mapInstance.mapData[0].length + this.x;
         const bombElement = document.createElement('div');
         bombElement.classList.add('bomb');
-        this.mapInstance.tiles[tileIndex].appendChild(bombElement); // Отображаем бомбу
+        this.mapInstance.tiles[tileIndex].appendChild(bombElement); // Display the bomb
         this.bombElement = bombElement;
     }
 
     explode() {
-        // Удаление элемента бомбы
+        // Remove bomb element
         this.bombElement.remove();
 
-        // Взрыв крестом
-        this.createExplosionEffect(this.x, this.y); // Центральная клетка
-        this.explodeInDirection(-1, 0); // Влево
-        this.explodeInDirection(1, 0);  // Вправо
-        this.explodeInDirection(0, -1); // Вверх
-        this.explodeInDirection(0, 1);  // Вниз
+        // Explosion cross effect
+        this.createExplosionEffect(this.x, this.y); // Center cell
+        this.explodeInDirection(-1, 0); // Left
+        this.explodeInDirection(1, 0);  // Right
+        this.explodeInDirection(0, -1); // Up
+        this.explodeInDirection(0, 1);  // Down
 
-        // Очистка таймера
+        // Clear timer
         clearTimeout(this.timer);
     }
 
@@ -39,18 +39,18 @@ export class Bomb {
             const tileX = this.x + dx * i;
             const tileY = this.y + dy * i;
 
-            // Добавляем эффект взрыва
+            // Add explosion effect
             if (this.mapInstance.isWithinMapBounds(tileX, tileY)) {
                 this.createExplosionEffect(tileX, tileY);
             }
 
-            // Разрушаем стену, если она разрушаемая
+            // Destroy wall if destructible
             if (this.mapInstance.canDestroyTile(tileX, tileY)) {
                 this.mapInstance.destroyWall(tileX, tileY);
-                break; // Взрыв не проходит дальше через разрушённые стены
+                break; // Explosion doesn't continue through destroyed walls
             }
 
-            // Прекращаем взрыв при попадании на неразрушаемую стену
+            // Stop explosion if it hits an indestructible wall
             if (this.mapInstance.mapData[tileY][tileX] === 2) {
                 break;
             }

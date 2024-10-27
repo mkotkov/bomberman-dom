@@ -38,12 +38,12 @@ class GameSession {
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         ];
 
-        // Случайная генерация неразрушаемых стен
+        // Random generation of indestructible walls
         for (let i = 0; i < map.length; i++) {
             for (let j = 0; j < map[i].length; j++) {
-                // Генерируем неразрушаемую стену с вероятностью 10%
+                // Generate an indestructible wall with a 10% probability
                 if (Math.random() < 0.1 && map[i][j] === 0) {
-                    map[i][j] = 2; // Неразрушаемая стена
+                    map[i][j] = 2; // Indestructible wall
                 }
             }
         }
@@ -55,13 +55,13 @@ class GameSession {
             this.players.push(player);
             const playerIndex = this.players.length - 1;
     
-            // Используем фиксированную позицию из массива
+            // Use a fixed position from an array
             const position = startingPositions[playerIndex];
             this.positions[playerIndex] = position; // Сохраняем начальную позицию
             console.log('PlayerId Data:', playerIndex);
             console.log('Position Data:', position);
     
-            // Отправляем данные с ожидаемым полем startingPosition
+            // Sending data with expected field startingPosition
             player.send(JSON.stringify({
                 type: 'playerPosition',
                 startingPosition: position,
@@ -70,7 +70,7 @@ class GameSession {
                 players: this.getPlayersPositions(),
             }));
     
-            // Отправляем обновленные данные карты всем игрокам
+            // Sending updated map data to all players
             this.players.forEach(p => {
                 if (p !== player) {
                     p.send(JSON.stringify({
@@ -90,10 +90,10 @@ class GameSession {
     
 
     destroyWall(x, y) {
-        // Обновление карты на сервере
+        // Updating the map on the server
         this.mapData[y][x] = 0;
 
-        // Рассылка обновлений карты всем игрокам
+
         const updateMessage = JSON.stringify({
             type: 'mapUpdate',
             position: { x, y },
@@ -113,20 +113,20 @@ class GameSession {
     }
 
     getPlayersPositions() {
-        // Возвращаем позиции игроков из массива startingPositions
+        // Return the players' positions from the startingPositions array
         return this.players.map((player, index) => ({
             playerIndex: index + 1,
-            position: startingPositions[index], // Используем фиксированную позицию из массива
+            position: startingPositions[index], // Use a fixed position from an array
         }));
     }
 
     updatePlayerPosition(player, newPosition) {
         const playerIndex = this.players.indexOf(player);
         if (playerIndex !== -1) {
-            // Обновляем позицию игрока в массиве startingPositions или используем отдельный массив для хранения позиций
-            startingPositions[playerIndex] = newPosition; // Обновляем позицию
+            // Update the player's position in the startingPositions array or use a separate array to store positions
+            startingPositions[playerIndex] = newPosition; // Updating the position
 
-            // Отправляем обновленные позиции всем игрокам
+            // We send updated positions to all players
             this.players.forEach(p => {
                 p.send(JSON.stringify({
                     type: 'updatePlayerPosition',
@@ -160,10 +160,10 @@ wss.on('connection', (ws) => {
                 const sessionId = gameSessions.length + 1;
                 session = new GameSession(sessionId);
                 gameSessions.push(session);
-                ws.sessionId = sessionId;  // Сохраняем sessionId для игрока
+                ws.sessionId = sessionId;  // Save sessionId for player
                 ws.send(JSON.stringify({ type: 'gameCreated', sessionId, map: session.mapData}));
             } else {
-                ws.sessionId = session.id;  // Сохраняем sessionId для игрока
+                ws.sessionId = session.id;  // Save sessionId for player
                 ws.send(JSON.stringify({ type: 'joinedExistingGame', sessionId: session.id, map: session.mapData }));
             }
     
@@ -177,7 +177,7 @@ wss.on('connection', (ws) => {
                 newValue: data.newValue
             };
     
-            // Найдите сессию игрока по sessionId
+            // Find a player's session by sessionId
             const session = gameSessions.find(session => session.id === ws.sessionId);
             
             if (session) {
@@ -188,10 +188,10 @@ wss.on('connection', (ws) => {
         }
 
         if (data.type === 'movePlayer') {
-            // Обработка перемещения игрока
+            //Handling player movement
             const { newPosition } = data;
             
-            // Найдите сессию игрока по sessionId
+            // Find a player's session by sessionId
             const session = gameSessions.find(session => session.id === ws.sessionId);
             
             if (session) {
@@ -202,17 +202,17 @@ wss.on('connection', (ws) => {
         }
     
         if (data.type === 'placeBomb') {
-            // Пересылаем данные о новой бомбе всем игрокам в сессии
+            // We send data about the new bomb to all players in the session
             const bombData = {
                 type: 'bombPlaced',
                 position: data.position,
                 radius: data.radius
             };
         
-            // Найдите сессию игрока по sessionId
+            // Find a player's session by sessionId
             const session = gameSessions.find(session => session.id === ws.sessionId);
             
-            // Проверьте, что сессия существует перед отправкой данных
+            // Check that the session exists before sending data
             if (session) {
                 session.players.forEach(player => player.send(JSON.stringify(bombData)));
             } else {
@@ -235,11 +235,11 @@ wss.on('connection', (ws) => {
             session.players = session.players.filter(player => player !== ws);
             session.positions = session.positions.filter((_, index) => index !== session.players.indexOf(ws));
     
-            // Отправляем всем оставшимся игрокам обновлённую информацию
+            // We are sending updated information to all remaining players.
             session.players.forEach(p => {
                 p.send(JSON.stringify({
                     type: 'playerDisconnected',
-                    playerId: ws.sessionId, // Можно использовать другой идентификатор
+                    playerId: ws.sessionId,
                 }));
             });
         }
