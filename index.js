@@ -50,6 +50,9 @@ function handleServerMessage(data) {
         case 'updatePlayerPosition':
             updatePlayerPosition(data.playerIndex, data.position); // Update a player's position
             break;
+        case 'updateLives':
+            updatePlayerLives(data.playerIndex, data.lives); // Update player lives
+            break;
         case 'gameStart':
             console.log(data.message); // Log a message indicating the game has started
             break;
@@ -62,10 +65,30 @@ function handleServerMessage(data) {
 }
 
 // Function to update the game map based on server data
-function updateMap({ x, y, newValue }) {
-    gameMap.mapData[y][x] = newValue; // Update the map data at the specified coordinates
-    gameMap.destroyWall(x, y); // Destroy the wall at the specified coordinates
-    gameMap.render(); // Re-render the map
+function updateMap(data) {
+    console.log("Update Map Data Received:", data); // Log the data received for debugging
+
+    // Ensure the necessary properties exist
+    if (data && typeof data.x !== 'undefined' && typeof data.y !== 'undefined' && typeof data.newValue !== 'undefined') {
+        if (!gameMap) {
+            console.error("Game map is not initialized."); // Log error if game map is not initialized
+            return;
+        }
+
+        // Check if the map data structure is valid
+        if (gameMap.mapData && gameMap.mapData[data.y] && gameMap.mapData[data.y][data.x] !== undefined) {
+            gameMap.mapData[data.y][data.x] = data.newValue; // Update the map data at the specified coordinates
+            gameMap.destroyWall(data.x, data.y); // Destroy the wall at the specified coordinates
+            gameMap.render(); // Re-render the map
+        } else {
+            console.error("Invalid map data received: ", {
+                expected: { x: data.x, y: data.y, newValue: data.newValue },
+                received: gameMap.mapData[data.y] ? gameMap.mapData[data.y][data.x] : undefined
+            }); // Log more details about the invalid data
+        }
+    } else {
+        console.error("Received invalid data structure:", data); // Log if the expected properties are missing
+    }
 }
 
 // Function to initialize the game with the received data
@@ -87,13 +110,6 @@ function renderPlayers(players) {
     players.forEach(p => {
         gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y); // Render each player's position
     });
-
-    // Check if the starting position for the player is available
-    if (data.startingPosition) {
-        player.setPosition(data.startingPosition.x, data.startingPosition.y); // Set player position
-    } else {
-        console.error("Starting position not found in data."); // Log error if position is not found
-    }
 }
 
 // Function to place a bomb at the specified position
@@ -104,6 +120,12 @@ function placeBomb(position, radius) {
 // Function to update a player's position on the map
 function updatePlayerPosition(playerIndex, position) {
     gameMap.renderPlayer(playerIndex, position.x, position.y); // Render the updated player position
+}
+
+// Function to handle player lives updates
+function updatePlayerLives(playerIndex, lives) {
+    console.log(`Player ${playerIndex} lives updated to ${lives}`); // Log the lives update
+    // Implement any additional logic to update lives in the UI, if necessary
 }
 
 // Function to handle active game sessions

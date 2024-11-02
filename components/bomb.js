@@ -30,6 +30,15 @@ export class Bomb {
         this.explodeInDirection(0, -1); // Up
         this.explodeInDirection(0, 1);  // Down
 
+        this.checkPlayerCollision();
+
+        console.log(`Bomb exploded at (${this.x}, ${this.y}) with radius ${this.radius}`);
+        this.gameMap.players.forEach(player => {
+            const distance = Math.sqrt((player.x - this.x) ** 2 + (player.y - this.y) ** 2);
+            if (distance <= this.radius) {
+                player.loseLife(); // Lose life if within explosion range
+            }
+        });
         // Clear timer
         clearTimeout(this.timer);
     }
@@ -42,6 +51,7 @@ export class Bomb {
             // Add explosion effect
             if (this.mapInstance.isWithinMapBounds(tileX, tileY)) {
                 this.createExplosionEffect(tileX, tileY);
+                this.checkPlayerCollision(tileX, tileY); // Check for player in blast
             }
 
             // Destroy wall if destructible
@@ -57,6 +67,27 @@ export class Bomb {
         }
     }
 
+    checkPlayerCollision() {
+        const players = this.mapInstance.players;
+
+        if (!players || players.length === 0) {
+            console.warn("No players available to check for collision.");
+            return;
+        }
+
+        players.forEach(player => {
+            const playerCol = Math.floor(player.x / 40);
+            const playerRow = Math.floor(player.y / 40);
+
+            if (
+                (playerCol === this.x && playerRow === this.y) ||
+                Math.abs(playerCol - this.x) <= this.radius && Math.abs(playerRow - this.y) <= this.radius
+            ) {
+                player.loseLife();
+            }
+        });
+    }
+
     createExplosionEffect(col, row) {
         const tileIndex = row * this.mapInstance.mapData[0].length + col;
         const tileElement = this.mapInstance.tiles[tileIndex];
@@ -69,4 +100,6 @@ export class Bomb {
             }, 500);
         }
     }
+
+    
 }

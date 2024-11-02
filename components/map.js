@@ -6,6 +6,7 @@ export class Map {
         this.mapData = mapData;
         this.ws = ws; // Storing WebSocket for use in methods
         this.tiles = [];
+        this.players = [];
         this.render(); // Initial rendering of the map
     }
 
@@ -50,6 +51,11 @@ export class Map {
 
             this.container.appendChild(playerElement); // Add new player to the container
         }
+    }
+
+     // Add player to the game
+    addPlayer(player) {
+        this.players.push(player); // Store the player in the map’s players array
     }
 
     destroyWall(col, row) {
