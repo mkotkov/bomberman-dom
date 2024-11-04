@@ -1,168 +1,178 @@
-import { Map } from './components/map.js'; // Importing the Map class for game map management
-import { Player } from './components/player.js'; // Importing the Player class for player management
-import { Bomb } from './components/bomb.js'; // Importing the Bomb class for bomb management
-import { on } from './core/events.js'; // Importing the event handling function
+import { Map } from './components/map.js';
+import { Player } from './components/player.js';
+import { Bomb } from './components/bomb.js';
+import { on } from './core/events.js';
 
-let player; // Variable to hold the player instance
-let ws; // Variable to hold the WebSocket connection
-let sessionId; // Variable to hold the session ID
-let gameMap = {}; // Object to hold the game map data
-const mapContainer = document.getElementById('game'); // Get the game container element
+const livesContainer = document.getElementById('lives-container');
+let player;
+let ws;
+let sessionId;
+let gameMap = {};
+const mapContainer = document.getElementById('game');
 
-// Function to initialize the WebSocket connection
+// Initialize the WebSocket connection
 function initializeWebSocket() {
-    ws = new WebSocket('ws://localhost:8080'); // Create a new WebSocket connection
+    ws = new WebSocket('ws://localhost:8080');
 
     ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'getActiveSessions' })); // Request active sessions when connection opens
+        ws.send(JSON.stringify({ type: 'getActiveSessions' }));
     };
 
-    // Handle incoming messages from the server
     ws.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
-
     ws.onclose = () => {
-        console.log('Connection closed'); // Log message when the connection is closed
+        console.log('Connection closed');
     };
 }
 
-// Function to handle messages received from the server
+// Handle messages from the server
 function handleServerMessage(data) {
-    console.log("Received data:", data); // Log the received data
+    console.log("Received data:", data);
 
-    // Switch case to handle different message types
     switch (data.type) {
         case 'mapUpdate':
-            updateMap(data); // Update the map based on received data
+            updateMap(data);
             break;
         case 'activeSessions':
-            handleActiveSessions(data.sessions); // Handle the list of active sessions
+            handleActiveSessions(data.sessions);
             break;
         case 'gameCreated':
         case 'joinedExistingGame':
-            initializeGame(data); // Initialize the game based on received data
+            initializeGame(data);
             break;
         case 'playerPosition':
-            renderPlayers(data.players); // Render the positions of players
+            renderPlayers(data.players);
             break;
         case 'bombPlaced':
-            placeBomb(data.position, data.radius); // Place a bomb based on received data
+            placeBomb(data.position, data.radius);
             break;
         case 'updatePlayerPosition':
-            updatePlayerPosition(data.playerIndex, data.position); // Update a player's position
+            updatePlayerPosition(data.playerIndex, data.position);
             break;
         case 'updateLives':
-            updatePlayerLives(data.playerIndex, data.lives); // Update player lives
+            updatePlayerLives(data.playerIndex, data.lives);
             break;
         case 'gameStart':
-            console.log(data.message); // Log a message indicating the game has started
+            console.log(data.message);
             break;
         case 'error':
-            console.error(data.message); // Log any errors received from the server
+            console.error(data.message);
             break;
         default:
-            console.warn("Unknown message type:", data.type); // Warn for unknown message types
+            console.warn("Unknown message type:", data.type);
     }
 }
 
-// Function to update the game map based on server data
+// Update game map with data from server
 function updateMap(data) {
-    console.log("Update Map Data Received:", data); // Log the data received for debugging
+    console.log("Update Map Data Received:", data);
 
-    // Ensure the necessary properties exist
-    if (data && typeof data.x !== 'undefined' && typeof data.y !== 'undefined' && typeof data.newValue !== 'undefined') {
-        if (!gameMap) {
-            console.error("Game map is not initialized."); // Log error if game map is not initialized
-            return;
-        }
+    if (data && data.position && typeof data.position.x === 'number' && typeof data.position.y === 'number' && typeof data.newValue === 'number') {
+        const { x, y } = data.position;
 
-        // Check if the map data structure is valid
-        if (gameMap.mapData && gameMap.mapData[data.y] && gameMap.mapData[data.y][data.x] !== undefined) {
-            gameMap.mapData[data.y][data.x] = data.newValue; // Update the map data at the specified coordinates
-            gameMap.destroyWall(data.x, data.y); // Destroy the wall at the specified coordinates
-            gameMap.render(); // Re-render the map
+        if (gameMap.mapData && gameMap.mapData[y] && gameMap.mapData[y][x] !== undefined) {
+            gameMap.mapData[y][x] = data.newValue;
+            gameMap.destroyWall(x, y);
+            gameMap.render();
         } else {
-            console.error("Invalid map data received: ", {
-                expected: { x: data.x, y: data.y, newValue: data.newValue },
-                received: gameMap.mapData[data.y] ? gameMap.mapData[data.y][data.x] : undefined
-            }); // Log more details about the invalid data
+            console.error("Invalid map coordinates or missing map data at:", { x, y });
         }
     } else {
-        console.error("Received invalid data structure:", data); // Log if the expected properties are missing
+        console.error("Received invalid data structure:", data);
     }
 }
 
-// Function to initialize the game with the received data
+// Initialize game with received data
 function initializeGame(data) {
-    sessionId = data.sessionId; // Set the session ID from the data
-    gameMap = new Map(mapContainer, data.map, ws); // Create a new map instance
+    sessionId = data.sessionId;
+    gameMap = new Map(mapContainer, data.map, ws);
 
-    // Create a new player instance and set their position
     player = new Player(document.createElement('div'), 40, gameMap, ws);
     if (data.startingPosition) {
-        player.setPosition(data.startingPosition.x, data.startingPosition.y); // Set player position
+        player.setPosition(data.startingPosition.x, data.startingPosition.y);
+        updateLivesDisplay(0, 3);
     } else {
-        console.error("Starting position not found in data."); // Log error if position is not found
+        console.error("Starting position not found in data.");
     }
 }
 
-// Function to render all players on the map
+// Render all players on the map
 function renderPlayers(players) {
     players.forEach(p => {
-        gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y); // Render each player's position
+        console.log(`Rendering Player ${p.playerIndex}:`, p);
+        const lives = typeof p.lives !== 'undefined' ? p.lives : 3;
+        gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y);
+        updateLivesDisplay(p.playerIndex, lives);
     });
 }
 
-// Function to place a bomb at the specified position
+// Place a bomb at the specified position
 function placeBomb(position, radius) {
-    new Bomb(position.x, position.y, radius, gameMap); // Create a new bomb instance
+    new Bomb(position.x, position.y, radius, gameMap);
 }
 
-// Function to update a player's position on the map
+// Update a player's position on the map
 function updatePlayerPosition(playerIndex, position) {
-    gameMap.renderPlayer(playerIndex, position.x, position.y); // Render the updated player position
+    gameMap.renderPlayer(playerIndex, position.x, position.y);
 }
 
-// Function to handle player lives updates
+// Handle player lives updates
 function updatePlayerLives(playerIndex, lives) {
-    console.log(`Player ${playerIndex} lives updated to ${lives}`); // Log the lives update
-    // Implement any additional logic to update lives in the UI, if necessary
+    console.log(`Player ${playerIndex} lives updated to ${lives}`);
+    updateLivesDisplay(playerIndex, lives);
 }
 
-// Function to handle active game sessions
+// Update the lives display in the UI
+function updateLivesDisplay(playerIndex, lives) {
+    let playerLivesDisplay = document.getElementById(`player-${playerIndex}-lives`);
+
+    if (!playerLivesDisplay) {
+        playerLivesDisplay = document.createElement('div');
+        playerLivesDisplay.id = `player-${playerIndex}-lives`;
+        livesContainer.appendChild(playerLivesDisplay);
+    
+    }
+    playerLivesDisplay.textContent = `Lives: ${lives}`;
+
+
+    if (typeof lives === 'number') {
+        playerLivesDisplay.textContent = `Player ${playerIndex} Lives: ${lives}`;
+    } else {
+        console.error(`Invalid lives value for player ${playerIndex}: ${lives}`);
+        playerLivesDisplay.textContent = `Player ${playerIndex} Lives: 0`;
+    }
+}
+
+// Handle active game sessions
 function handleActiveSessions(sessions) {
     if (sessions.length > 0) {
-        // If there are available sessions, prompt the user to join one
         const joinExisting = confirm(`Available sessions: ${sessions.join(', ')}. Join one?`);
         if (joinExisting) {
-            sessionId = sessions[0]; // Set the session ID to the first available session
-            ws.send(JSON.stringify({ type: 'createOrJoinGame', sessionId })); // Join the selected session
+            sessionId = sessions[0];
+            ws.send(JSON.stringify({ type: 'createOrJoinGame', sessionId }));
         } else {
-            ws.send(JSON.stringify({ type: 'createOrJoinGame' })); // Create a new game session
+            ws.send(JSON.stringify({ type: 'createOrJoinGame' }));
         }
     } else {
-        ws.send(JSON.stringify({ type: 'createOrJoinGame' })); // Create a new game session if no active sessions
+        ws.send(JSON.stringify({ type: 'createOrJoinGame' }));
     }
 }
 
 // Event listener for keyboard input
 on(document, 'keydown', (event) => {
     if (player) {
-        const oldPosition = { x: player.x, y: player.y }; // Store the old position of the player
-        player.move(event.key); // Move the player based on the key pressed
+        const oldPosition = { x: player.x, y: player.y };
+        player.move(event.key);
 
-        // Check if the spacebar is pressed to place a bomb
         if (event.key === ' ') {
-            player.placeBomb(); // Place a bomb
+            player.placeBomb();
         }
 
-        // If the player's position has changed, notify the server
         if (oldPosition.x !== player.x || oldPosition.y !== player.y) {
-            ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } })); // Send new position to server
+            ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } }));
         }
     }
 });
 
-// Event listener for DOMContentLoaded to initialize the WebSocket connection
 document.addEventListener("DOMContentLoaded", () => {
-    initializeWebSocket(); // Call function to initialize WebSocket connection when DOM is fully loaded
+    initializeWebSocket();
 });
