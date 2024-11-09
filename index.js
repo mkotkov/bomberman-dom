@@ -62,23 +62,11 @@ function handleServerMessage(data) {
     }
 }
 
-// Update game map with data from server
-function updateMap(data) {
-    console.log("Update Map Data Received:", data);
-
-    if (data && data.position && typeof data.position.x === 'number' && typeof data.position.y === 'number' && typeof data.newValue === 'number') {
-        const { x, y } = data.position;
-
-        if (gameMap.mapData && gameMap.mapData[y] && gameMap.mapData[y][x] !== undefined) {
-            gameMap.mapData[y][x] = data.newValue;
-            gameMap.destroyWall(x, y);
-            gameMap.render();
-        } else {
-            console.error("Invalid map coordinates or missing map data at:", { x, y });
-        }
-    } else {
-        console.error("Received invalid data structure:", data);
-    }
+// Function to update the game map based on server data
+function updateMap({ x, y, newValue }) {
+    gameMap.mapData[y][x] = newValue; // Update the map data at the specified coordinates
+    gameMap.destroyWall(x, y); // Destroy the wall at the specified coordinates
+    gameMap.render(); // Re-render the map
 }
 
 // Initialize game with received data
@@ -103,6 +91,13 @@ function renderPlayers(players) {
         gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y);
         updateLivesDisplay(p.playerIndex, lives);
     });
+
+     // Check if the starting position for the player is available
+    if (data.startingPosition) {
+        player.setPosition(data.startingPosition.x, data.startingPosition.y); // Set player position
+    } else {
+        console.error("Starting position not found in data."); // Log error if position is not found
+    }
 }
 
 // Place a bomb at the specified position
@@ -160,19 +155,22 @@ function handleActiveSessions(sessions) {
 // Event listener for keyboard input
 on(document, 'keydown', (event) => {
     if (player) {
-        const oldPosition = { x: player.x, y: player.y };
-        player.move(event.key);
+        const oldPosition = { x: player.x, y: player.y }; // Store the old position of the player
+        player.move(event.key); // Move the player based on the key pressed
 
+        // Check if the spacebar is pressed to place a bomb
         if (event.key === ' ') {
-            player.placeBomb();
+            player.placeBomb(); // Place a bomb
         }
 
+        // If the player's position has changed, notify the server
         if (oldPosition.x !== player.x || oldPosition.y !== player.y) {
-            ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } }));
+            ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } })); // Send new position to server
         }
     }
 });
 
+// Event listener for DOMContentLoaded to initialize the WebSocket connection
 document.addEventListener("DOMContentLoaded", () => {
-    initializeWebSocket();
+    initializeWebSocket(); // Call function to initialize WebSocket connection when DOM is fully loaded
 });
