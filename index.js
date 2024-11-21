@@ -1,6 +1,7 @@
 import { Map } from './components/map.js';
 import { Player } from './components/player.js';
 import { Bomb } from './components/bomb.js';
+import { PlayerLives } from './components/PlayerLives.js';
 import { on } from './core/events.js';
 
 const livesContainer = document.getElementById('lives-container');
@@ -9,6 +10,7 @@ let ws;
 let sessionId;
 let gameMap = {};
 const mapContainer = document.getElementById('game');
+let playerLives; // Declare playerLives variable to hold the PlayerLives instance
 
 // Initialize the WebSocket connection
 function initializeWebSocket() {
@@ -62,11 +64,11 @@ function handleServerMessage(data) {
     }
 }
 
-// Function to update the game map based on server data
+// Update the game map based on server data
 function updateMap({ x, y, newValue }) {
-    gameMap.mapData[y][x] = newValue; // Update the map data at the specified coordinates
-    gameMap.destroyWall(x, y); // Destroy the wall at the specified coordinates
-    gameMap.render(); // Re-render the map
+    gameMap.mapData[y][x] = newValue;
+    gameMap.destroyWall(x, y);
+    gameMap.render();
 }
 
 // Initialize game with received data
@@ -81,6 +83,17 @@ function initializeGame(data) {
     } else {
         console.error("Starting position not found in data.");
     }
+
+    // Initialize the player lives
+    initializePlayerLives();
+}
+
+// Initialize player lives
+function initializePlayerLives(initialLives = 3) {
+    playerLives = new PlayerLives(initialLives, (updatedLives) => {
+        console.log("Lives updated callback triggered.");
+        updateLivesDisplay(0, updatedLives); // Update lives display when lives change
+    });
 }
 
 // Render all players on the map
@@ -91,13 +104,6 @@ function renderPlayers(players) {
         gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y);
         updateLivesDisplay(p.playerIndex, lives);
     });
-
-     // Check if the starting position for the player is available
-    if (data.startingPosition) {
-        player.setPosition(data.startingPosition.x, data.startingPosition.y); // Set player position
-    } else {
-        console.error("Starting position not found in data."); // Log error if position is not found
-    }
 }
 
 // Place a bomb at the specified position
@@ -110,10 +116,12 @@ function updatePlayerPosition(playerIndex, position) {
     gameMap.renderPlayer(playerIndex, position.x, position.y);
 }
 
-// Handle player lives updates
+// Update player lives based on server data
 function updatePlayerLives(playerIndex, lives) {
     console.log(`Player ${playerIndex} lives updated to ${lives}`);
-    updateLivesDisplay(playerIndex, lives);
+    // Here we assume that the `loseLife` function should be triggered and that it will handle the decrement
+    playerLives.loseLife();
+    updateLivesDisplay(playerIndex, playerLives.getLives());
 }
 
 // Update the lives display in the UI
@@ -124,13 +132,12 @@ function updateLivesDisplay(playerIndex, lives) {
         playerLivesDisplay = document.createElement('div');
         playerLivesDisplay.id = `player-${playerIndex}-lives`;
         livesContainer.appendChild(playerLivesDisplay);
-    
     }
-    playerLivesDisplay.textContent = `Lives: ${lives}`;
 
-
+    // Update text content for lives or display an error if invalid
     if (typeof lives === 'number') {
         playerLivesDisplay.textContent = `Player ${playerIndex} Lives: ${lives}`;
+        console.log(`Updated lives display for player ${playerIndex} on the webpage: Player ${playerIndex} Lives: ${lives}`);
     } else {
         console.error(`Invalid lives value for player ${playerIndex}: ${lives}`);
         playerLivesDisplay.textContent = `Player ${playerIndex} Lives: 0`;
@@ -141,12 +148,8 @@ function updateLivesDisplay(playerIndex, lives) {
 function handleActiveSessions(sessions) {
     if (sessions.length > 0) {
         const joinExisting = confirm(`Available sessions: ${sessions.join(', ')}. Join one?`);
-        if (joinExisting) {
-            sessionId = sessions[0];
-            ws.send(JSON.stringify({ type: 'createOrJoinGame', sessionId }));
-        } else {
-            ws.send(JSON.stringify({ type: 'createOrJoinGame' }));
-        }
+        sessionId = joinExisting ? sessions[0] : null;
+        ws.send(JSON.stringify({ type: 'createOrJoinGame', sessionId }));
     } else {
         ws.send(JSON.stringify({ type: 'createOrJoinGame' }));
     }
@@ -155,22 +158,20 @@ function handleActiveSessions(sessions) {
 // Event listener for keyboard input
 on(document, 'keydown', (event) => {
     if (player) {
-        const oldPosition = { x: player.x, y: player.y }; // Store the old position of the player
-        player.move(event.key); // Move the player based on the key pressed
+        const oldPosition = { x: player.x, y: player.y };
+        player.move(event.key);
 
-        // Check if the spacebar is pressed to place a bomb
+        // Place a bomb if spacebar is pressed
         if (event.key === ' ') {
-            player.placeBomb(); // Place a bomb
+            player.placeBomb();
         }
 
-        // If the player's position has changed, notify the server
+        // Send new position to the server if it changed
         if (oldPosition.x !== player.x || oldPosition.y !== player.y) {
-            ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } })); // Send new position to server
+            ws.send(JSON.stringify({ type: 'movePlayer', newPosition: { x: player.x, y: player.y } }));
         }
     }
 });
 
-// Event listener for DOMContentLoaded to initialize the WebSocket connection
-document.addEventListener("DOMContentLoaded", () => {
-    initializeWebSocket(); // Call function to initialize WebSocket connection when DOM is fully loaded
-});
+// Initialize WebSocket connection on DOM load
+document.addEventListener("DOMContentLoaded", initializeWebSocket);

@@ -90,6 +90,15 @@ export class Player {
         }
     }
 
+    updateLivesDisplay() {
+        const livesDisplay = document.getElementById('lives-display'); // Ensure this ID matches your HTML element
+        if (livesDisplay) {
+            livesDisplay.innerText = `Player ${this.name} Lives: ${this.lives}`;
+        } else {
+            console.warn("Lives display element not found");
+        }
+    }
+    
     // Reset the damage flag after each explosion to allow future damage
     resetDamageFlag() {
         this.hasTakenDamage = false;
