@@ -1,33 +1,36 @@
 import { createElement } from "../core/dom.js";
 
 export class Map {
-    constructor(container, mapData, ws) { // Adding ws as a parameter to the constructor
+    constructor(container, mapData, ws) {
+        if (!Array.isArray(mapData) || mapData.length === 0 || !Array.isArray(mapData[0])) {
+            throw new Error("Invalid mapData provided to Map constructor");
+        }
+
         this.container = container;
         this.mapData = mapData;
-        this.ws = ws; // Storing WebSocket for use in methods
+        this.ws = ws;
         this.tiles = [];
         this.players = [];
-        this.render(); // Initial rendering of the map
+        this.render();
     }
 
     render() {
-        this.tiles = []; // Clear the tiles array
+        this.container.innerHTML = ""; // Clear previous tiles
+        this.tiles = [];
 
-        // Iterate over each row and column in the map data
         this.mapData.forEach((row, rowIndex) => {
             row.forEach((tile, colIndex) => {
-                // Determine the tile type based on the map data value
                 const tileType = tile === 1 ? 'block' : tile === 2 ? 'wall' : 'grass';
                 const tileElement = createElement('div', {
                     class: `tile ${tileType}`,
                     style: {
-                        left: `${colIndex * 40}px`, // Positioning based on column index
-                        top: `${rowIndex * 40}px`,   // Positioning based on row index
+                        left: `${colIndex * 40}px`,
+                        top: `${rowIndex * 40}px`,
                     }
                 });
 
-                this.container.appendChild(tileElement); // Add tile to the container
-                this.tiles.push(tileElement); // Track tile element
+                this.container.appendChild(tileElement);
+                this.tiles.push(tileElement);
             });
         });
     }
@@ -35,11 +38,9 @@ export class Map {
     renderPlayer(playerIndex, x, y) {
         const existingPlayer = this.container.querySelector(`.player[data-index="${playerIndex}"]`);
         if (existingPlayer) {
-            // Update position if player already exists
             existingPlayer.style.left = `${x}px`;
             existingPlayer.style.top = `${y}px`;
         } else {
-            // Create new player element
             const playerElement = createElement('div', {
                 class: 'player',
                 'data-index': playerIndex,
@@ -48,60 +49,47 @@ export class Map {
                     top: `${y}px`,
                 }
             });
-
-            this.container.appendChild(playerElement); // Add new player to the container
+            this.container.appendChild(playerElement);
         }
     }
 
-     // Add player to the game
     addPlayer(player) {
-        this.players.push(player); // Store the player in the map’s players array
+        this.players.push(player); // Register the player in the map
     }
 
     destroyWall(col, row) {
         if (this.canDestroyTile(col, row)) {
-            this.mapData[row][col] = 0; // Update the map on the client side
-            
-            // Update display on the screen
+            this.mapData[row][col] = 0;
             const tileIndex = row * this.mapData[0].length + col;
             if (this.tiles[tileIndex]) {
-                this.tiles[tileIndex].classList.remove('block'); // Change tile class
-                this.tiles[tileIndex].classList.add('grass'); // Set new tile type
+                this.tiles[tileIndex].classList.remove('block');
+                this.tiles[tileIndex].classList.add('grass');
             }
-            
-            if (this.mapData[row][col] === 2) {
-                this.mapData[row][col] = 0; // Change to empty tile
-                this.render(); // Re-render the map
-            }
-            
-            // Send a message to the server about the wall destruction
+
             if (this.ws) {
                 this.ws.send(JSON.stringify({
                     type: 'updateMap',
                     position: { x: col, y: row },
-                    newValue: 0 // New value after destruction
+                    newValue: 0
                 }));
             }
         }
     }
 
     isWithinMapBounds(col, row) {
-        return row >= 0 && row < this.mapData.length && col >= 0 && col < this.mapData[row].length;
-    }
-
-    isTileWalkable(x, y) {
-        const row = Math.floor(y / 40); // Calculate row based on y position
-        const col = Math.floor(x / 40); // Calculate column based on x position
-        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0; // Check if tile is walkable
-    }
-
-    isPassable(x, y) {
-        const col = Math.floor(x / 40); // Calculate column based on x position
-        const row = Math.floor(y / 40); // Calculate row based on y position
-        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0; // Check if tile is passable
+        return (
+            row >= 0 && row < this.mapData.length &&
+            col >= 0 && col < this.mapData[row].length
+        );
     }
 
     canDestroyTile(col, row) {
-        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1; // Check if tile can be destroyed
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1;
+    }
+
+    isTileWalkable(x, y) {
+        const col = Math.floor(x / 40);
+        const row = Math.floor(y / 40);
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0;
     }
 }

@@ -13,11 +13,33 @@ class GameSession {
         this.maxPlayers = maxPlayers;
         this.players = [];
         this.positions = [];
+        this.lives = Array(maxPlayers).fill(3); // Add this line to initialize lives
         console.log(`Creating GameSession with id: ${id}`);
         this.mapData = this.generateMap();
         console.log('Map Data:', this.mapData);
     }
 
+     // Add this loseLife method inside the GameSession class
+    loseLife(playerIndex) {
+        if (this.lives[playerIndex] > 0) {
+            this.lives[playerIndex]--;
+
+            // Notify all players about the updated lives
+            this.players.forEach(player => {
+                player.send(JSON.stringify({
+                    type: 'updateLives',
+                    playerIndex: playerIndex + 1,
+                    lives: this.lives[playerIndex],
+                }));
+            });
+
+            // Check if the player has run out of lives
+            if (this.lives[playerIndex] === 0) {
+                console.log(`Player ${playerIndex + 1} is out of lives!`);
+                // Optional: Add logic for game over or disconnection
+            }
+        }
+    }
     generateMap() {
         const map = [
             [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
@@ -55,22 +77,18 @@ class GameSession {
             this.players.push(player);
             const playerIndex = this.players.length - 1;
     
-            // Use a fixed position from an array
             const position = startingPositions[playerIndex];
-            this.positions[playerIndex] = position; // Сохраняем начальную позицию
-            console.log('PlayerId Data:', playerIndex);
-            console.log('Position Data:', position);
+            this.positions[playerIndex] = position;
     
-            // Sending data with expected field startingPosition
             player.send(JSON.stringify({
                 type: 'playerPosition',
                 startingPosition: position,
                 position: { playerIndex: playerIndex + 1, position },
                 map: this.mapData,
                 players: this.getPlayersPositions(),
+                lives: this.lives, // Include lives data
             }));
     
-            // Sending updated map data to all players
             this.players.forEach(p => {
                 if (p !== player) {
                     p.send(JSON.stringify({
@@ -87,6 +105,7 @@ class GameSession {
             player.send(JSON.stringify({ type: 'error', message: 'Game is full' }));
         }
     }
+    
     
 
     destroyWall(x, y) {

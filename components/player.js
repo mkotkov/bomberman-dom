@@ -2,33 +2,54 @@ import { Bomb } from "./bomb.js";
 import { PlayerLives } from './PlayerLives.js';
 
 export class Player {
-    constructor(element, speed, gameMap, ws) {
+    constructor(element, size, gameMap, ws) {
         this.element = element;
-        this.speed = speed;
-        this.gameMap = gameMap;
-        this.ws = ws;
-        this.x = 0;
-        this.y = 0;
-        this.livesManager = new PlayerLives(3); // Manages lives
-        this.index = gameMap.players.length; // Player's index in game map
-        this.gameMap.addPlayer(this); // Register player on game map
-        this.updatePosition(); // Initial position update in the UI
-        this.hasTakenDamage = false; // Flag to prevent multiple damage from a single explosion
+        this.size = size; // Tile size
+        this.gameMap = gameMap; // Reference to the game map
+        this.ws = ws; // WebSocket instance
+        this.speed = size; // Movement increment equals tile size
+        this.x = 0; // Initial x position
+        this.y = 0; // Initial y position
+        this.livesManager = new PlayerLives(3); // Initialize with 3 lives
+        this.index = gameMap.players.length; // Index in the players array
+        this.hasTakenDamage = false; // Prevent multiple damage from a single event
+
+        // Set up the player element
+        this.element.className = "player";
+        this.element.style.width = `${size}px`;
+        this.element.style.height = `${size}px`;
+
+        // Append the player to the game map container
+        this.gameMap.container.appendChild(this.element);
+        this.gameMap.addPlayer(this); // Register the player in the map
+
+        // Initial position update in the UI
+        this.updatePosition();
+
+        // Initial lives display
+        this.updateLivesDisplay();
     }
 
-    // Set position and update visual representation
+    // Set the player's position
     setPosition(x, y) {
         this.x = x;
         this.y = y;
         this.updatePosition();
     }
 
-    // Place a bomb and notify server
-    placeBomb() {
-        const col = Math.floor(this.x / 40); // Calculate grid column
-        const row = Math.floor(this.y / 40); // Calculate grid row
-        new Bomb(col, row, 1, this.gameMap); // Place bomb on the grid
+    // Update the player's position in the UI
+    updatePosition() {
+        this.element.style.left = `${this.x}px`;
+        this.element.style.top = `${this.y}px`;
+    }
 
+    // Place a bomb at the player's current location
+    placeBomb() {
+        const col = Math.floor(this.x / this.size); // Determine column index
+        const row = Math.floor(this.y / this.size); // Determine row index
+        new Bomb(col, row, 1, this.gameMap); // Create a new bomb at this position
+
+        // Notify the server about the bomb placement
         if (this.ws) {
             this.ws.send(JSON.stringify({
                 type: 'placeBomb',
@@ -37,13 +58,7 @@ export class Player {
         }
     }
 
-    // Update the player's position in the DOM
-    updatePosition() {
-        this.element.style.left = `${this.x}px`;
-        this.element.style.top = `${this.y}px`;
-    }
-
-    // Move player in a given direction
+    // Move the player based on input
     move(direction) {
         let newX = this.x;
         let newY = this.y;
@@ -64,43 +79,62 @@ export class Player {
             default:
                 return;
         }
-        
-        // Check if the new position is passable, then update position
-        if (this.gameMap.isPassable(newX, newY)) {
+
+        // Check if the new position is walkable, then update
+        if (this.gameMap.isTileWalkable(newX, newY)) {
             this.setPosition(newX, newY);
+
+            // Notify the server about the move
+            if (this.ws) {
+                this.ws.send(JSON.stringify({
+                    type: 'movePlayer',
+                    newPosition: { x: newX, y: newY }
+                }));
+            }
         }
     }
 
-    // Handle losing a life, notifying the server, and checking for game-over
+    // Handle the player losing a life
     loseLife() {
-        if (!this.hasTakenDamage) {  // Prevent multiple damage from the same explosion
+        if (!this.hasTakenDamage) { // Prevent multiple damage
             const remainingLives = this.livesManager.loseLife();
             console.log(`Player lost a life. Lives remaining: ${remainingLives}`);
-            
+
+            // Notify the server about the updated lives
             if (this.ws) {
-                this.ws.send(JSON.stringify({ type: 'updateLives', playerIndex: this.index, lives: remainingLives }));
+                this.ws.send(JSON.stringify({
+                    type: 'updateLives',
+                    playerIndex: this.index,
+                    lives: remainingLives
+                }));
             }
+
+            // Update the lives display in the UI
+            this.updateLivesDisplay();
 
             if (remainingLives === 0) {
-                console.log("Player has no lives left.");
-                // Additional game-over logic can be added here if needed
+                console.log("Player has no lives left. Game over.");
+                // Additional game-over logic can go here
             }
 
-            this.hasTakenDamage = true;  // Set the flag to true after taking damage
+            this.hasTakenDamage = true; // Set the damage flag
         }
     }
 
+    // Update the lives display in the UI
     updateLivesDisplay() {
-        const livesDisplay = document.getElementById('lives-display'); // Ensure this ID matches your HTML element
+        const livesDisplay = document.getElementById('lives-display'); // Ensure this ID matches your HTML
         if (livesDisplay) {
-            livesDisplay.innerText = `Player ${this.name} Lives: ${this.lives}`;
+            const currentLives = this.livesManager.getLives();
+            livesDisplay.innerText = `Player ${this.index + 1} Lives: ${currentLives}`;
         } else {
             console.warn("Lives display element not found");
         }
     }
-    
-    // Reset the damage flag after each explosion to allow future damage
+
+    // Reset the damage flag to allow taking damage again
     resetDamageFlag() {
         this.hasTakenDamage = false;
     }
 }
+
