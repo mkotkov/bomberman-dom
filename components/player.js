@@ -13,6 +13,7 @@ export class Player {
         this.livesManager = new PlayerLives(3); // Initialize with 3 lives
         this.index = gameMap.players.length; // Index in the players array
         this.hasTakenDamage = false; // Prevent multiple damage from a single event
+        this.isGameOver = false; // Tracks if the game is over for this player
 
         // Set up the player element
         this.element.className = "player";
@@ -45,6 +46,8 @@ export class Player {
 
     // Place a bomb at the player's current location
     placeBomb() {
+        if (this.isGameOver) return; // Prevent bomb placement if the game is over
+
         const col = Math.floor(this.x / this.size); // Determine column index
         const row = Math.floor(this.y / this.size); // Determine row index
         new Bomb(col, row, 1, this.gameMap); // Create a new bomb at this position
@@ -60,6 +63,8 @@ export class Player {
 
     // Move the player based on input
     move(direction) {
+        if (this.isGameOver) return; // Prevent movement if the game is over
+
         let newX = this.x;
         let newY = this.y;
 
@@ -114,7 +119,7 @@ export class Player {
 
             if (remainingLives === 0) {
                 console.log("Player has no lives left. Game over.");
-                // Additional game-over logic can go here
+                this.endGame(); // Trigger the game-over state
             }
 
             this.hasTakenDamage = true; // Set the damage flag
@@ -136,5 +141,22 @@ export class Player {
     resetDamageFlag() {
         this.hasTakenDamage = false;
     }
-}
 
+    // Handle the game-over state
+    endGame() {
+        this.isGameOver = true; // Prevent further actions
+        this.element.classList.add("game-over"); // Optional: Add a "game-over" class for styling
+
+        // Display a game-over message
+        const gameOverMessage = document.createElement("div");
+        gameOverMessage.id = "game-over-message";
+        gameOverMessage.innerText = "Game Over!";
+        gameOverMessage.style.position = "absolute";
+        gameOverMessage.style.top = "50%";
+        gameOverMessage.style.left = "50%";
+        gameOverMessage.style.transform = "translate(-50%, -50%)";
+        gameOverMessage.style.fontSize = "2rem";
+        gameOverMessage.style.color = "red";
+        document.body.appendChild(gameOverMessage);
+    }
+}
