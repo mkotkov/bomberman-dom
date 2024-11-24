@@ -77,6 +77,26 @@ export class Chat {
     }
 }
 
+renderMessages(messages) {
+    // Clear existing messages
+    this.messagesContainer.innerHTML = '';
+
+    // Create message elements
+    const messageElements = messages.map(message => {
+        return createElement('div', {
+            class: 'message',
+            innerHTML: `<span class="player">${message.creator}:</span> ${message.body}`
+        });
+    });
+
+    // Render using your utility
+    renderElements(this.messagesContainer, messageElements);
+    
+    // Scroll to bottom
+    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+}
+}
+
 
 // export class Chat {
 //     constructor() {
