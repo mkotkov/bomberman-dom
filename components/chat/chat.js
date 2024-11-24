@@ -75,7 +75,6 @@ export class Chat {
         this.ws.send(JSON.stringify(chatMessage));
         this.input.value = '';
     }
-}
 
 renderMessages(messages) {
     // Clear existing messages
@@ -94,10 +93,8 @@ renderMessages(messages) {
     
     // Scroll to bottom
     this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
 }
-}
-
-
 // export class Chat {
 //     constructor() {
 //         this.container = createElement('div', { class: 'chat' });
