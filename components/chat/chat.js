@@ -45,13 +45,24 @@ export class Chat {
         });
         this.sendButton.textContent = 'Send';
 
-        // Assemble the UI using your renderElements utility
+        // Assemble the UI using the renderElements utility
         renderElements(this.inputContainer, [this.input, this.sendButton]);
         renderElements(this.chatContainer, [this.messagesContainer, this.inputContainer]);
         renderElements(this.container, [this.chatContainer]);
     }
 
-    bindEvents() { }
+    bindEvents() {
+        // Use the event utility for event binding
+        on(this.sendButton, 'click', () => this.sendMessage());
+        
+        on(this.input, 'keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.sendMessage();
+            }
+        });
+    }
+
+    sendMessage() { }
 }
 
 
