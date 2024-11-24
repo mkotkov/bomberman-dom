@@ -62,7 +62,19 @@ export class Chat {
         });
     }
 
-    sendMessage() { }
+    sendMessage() {
+        const message = this.input.value.trim();
+        if (!message) return;
+
+        const chatMessage = {
+            type: 'CHAT_MESSAGE',
+            body: message,
+            timestamp: Date.now()
+        };
+
+        this.ws.send(JSON.stringify(chatMessage));
+        this.input.value = '';
+    }
 }
 
 
