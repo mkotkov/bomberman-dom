@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&display=swap');
+
 body {
     margin: 0;
     display: flex;
@@ -5,15 +7,14 @@ body {
     align-items: center;
     height: 100vh;
     background-color: #f0f0f0;
+    font-family: "Funnel Display", sans-serif;
 }
 #game {
     width: 640px;
     height: 640px; 
-    background-color: #fff;
-    border: 2px solid #000;
     position: relative;
-    overflow: hidden;
 }
+
 .player {
     width: 40px;
     height: 40px;
@@ -35,10 +36,12 @@ body {
     background-color: rgb(67, 13, 92);
 }
 
+#header{
+    font-size: 5rem;
+}
 
 .map-container {
-    position: relative;
-    width: 640px;
+    border: 1px solid #000;
     height: 640px;
 }
 
@@ -54,10 +57,6 @@ body {
 
 .wall {
     background-color: gray;
-}
-
-.grass {
-   
 }
 
 .bomb {
@@ -85,4 +84,106 @@ body {
 @keyframes explosion {
     0% { opacity: 1; transform: scale(1); }
     100% { opacity: 0; transform: scale(2); }
+}
+
+
+
+#namePrompt {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px;
+    text-align: center;
+}
+
+#namePrompt input {
+    margin-bottom: 10px;
+    text-align: center;
+    width: 60%;
+    padding: 1rem;
+    border-radius: 0.2rem;
+    border: none;
+}
+
+#namePrompt button {
+    padding: 1rem;
+    background-color: #ee463e;
+    border: none;
+    color: #f0f0f0;
+    border-radius: 0.2rem;
+}
+
+
+.countdown {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 20px;
+}
+
+
+.chat-block {
+    margin-top: 20px;
+}
+
+.chat-messages {
+    height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: #f9f9f9;
+}
+
+.chat-form {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input {
+    flex-grow: 1;
+    padding: 5px;
+}
+
+/* Стили таблицы игроков */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+    color: #333;
+    text-transform: uppercase;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+td {
+    font-size: 14px;
+}
+
+th, td:first-child {
+    text-align: center;
 }

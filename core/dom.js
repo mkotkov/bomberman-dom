@@ -1,19 +1,26 @@
 export function createElement(tag, attrs = {}) {
-  const element = document.createElement(tag);
-
-  // Устанавливаем атрибуты
-  Object.keys(attrs).forEach((key) => {
+    const element = document.createElement(tag);
+  
+    // Validate the id attribute for valid characters
+    if (attrs.id && !/^[a-zA-Z_][\w\-]*$/.test(attrs.id)) {
+      console.error(`Invalid ID: ${attrs.id}`);
+      delete attrs.id; // Remove invalid ID attribute
+    }
+  
+    // Set the attributes
+    Object.keys(attrs).forEach((key) => {
       if (key === 'style') {
-          Object.keys(attrs.style).forEach((styleKey) => {
-              element.style[styleKey] = attrs.style[styleKey];
-          });
+        Object.keys(attrs.style).forEach((styleKey) => {
+          element.style[styleKey] = attrs.style[styleKey];
+        });
       } else {
-          element.setAttribute(key, attrs[key]);
+        element.setAttribute(key, attrs[key]);
       }
-  });
-
-  return element;
-}
+    });
+  
+    return element;
+  }
+  
 
 
   export function renderElements(container, elements) {

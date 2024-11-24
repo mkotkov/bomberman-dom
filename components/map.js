@@ -6,7 +6,7 @@ export class Map {
         this.mapData = mapData;
         this.ws = ws; // Storing WebSocket for use in methods
         this.tiles = [];
-        this.render(); // Initial rendering of the map
+        this.render(); // InitZ rendering of the map
     }
 
     render() {

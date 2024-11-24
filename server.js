@@ -24,26 +24,25 @@ class GameSession {
             [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
             [1, 0, 1, 2, 0, 1, 0, 1, 2, 1, 0, 1, 0, 1, 0, 1],
             [0, 0, 0, 0, 2, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0],
-            [1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 2, 1, 0, 2, 1, 1, 1, 1, 1, 2, 0, 1, 1, 1],
             [0, 2, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 2, 0],
-            [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
             [0, 0, 2, 2, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0],
             [1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1],
             [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
             [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
             [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
             [1, 1, 2, 1, 1, 1, 2, 1, 1, 0, 1, 1, 2, 1, 1, 1],
-            [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+            [0, 0, 2, 2, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0],
             [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
         ];
 
-        // Random generation of indestructible walls
+        // Random generation of destructible walls
         for (let i = 0; i < map.length; i++) {
             for (let j = 0; j < map[i].length; j++) {
-                // Generate an indestructible wall with a 10% probability
                 if (Math.random() < 0.1 && map[i][j] === 0) {
-                    map[i][j] = 2; // Indestructible wall
+                    map[i][j] = 1; 
                 }
             }
         }
@@ -54,7 +53,6 @@ class GameSession {
         if (this.players.length < this.maxPlayers) {
             this.players.push(player);
             const playerIndex = this.players.length - 1;
-    
             // Use a fixed position from an array
             const position = startingPositions[playerIndex];
             this.positions[playerIndex] = position; // Сохраняем начальную позицию
@@ -79,10 +77,6 @@ class GameSession {
                     }));
                 }
             });
-    
-            if (this.players.length === this.maxPlayers) {
-                this.startGame();
-            }
         } else {
             player.send(JSON.stringify({ type: 'error', message: 'Game is full' }));
         }
@@ -104,28 +98,30 @@ class GameSession {
     }
 
     startGame() {
+        const startingPositions = this.getPlayersPositions();
         this.players.forEach((player, index) => {
             player.send(JSON.stringify({
                 type: 'gameStart',
                 message: `Game started! You are Player ${index + 1}`,
+                map: this.mapData,
+                players: startingPositions, 
+                yourIndex: index + 1,       // Индекс текущего игрока
             }));
         });
     }
+    
 
     getPlayersPositions() {
-        // Return the players' positions from the startingPositions array
         return this.players.map((player, index) => ({
             playerIndex: index + 1,
-            position: startingPositions[index], // Use a fixed position from an array
+            position: startingPositions[index],
         }));
     }
 
     updatePlayerPosition(player, newPosition) {
         const playerIndex = this.players.indexOf(player);
         if (playerIndex !== -1) {
-            // Update the player's position in the startingPositions array or use a separate array to store positions
-            startingPositions[playerIndex] = newPosition; // Updating the position
-
+            startingPositions[playerIndex] = newPosition; // 
             // We send updated positions to all players
             this.players.forEach(p => {
                 p.send(JSON.stringify({
@@ -136,7 +132,10 @@ class GameSession {
             });
         }
     }
-
+    getSessionByPlayer(player) {
+        return this.players.includes(player) ? this : null;
+    }
+    
     broadcastToPlayers(message) {
         this.players.forEach(player => {
             if (player.ws && player.ws.readyState === WebSocket.OPEN) {
@@ -152,96 +151,158 @@ const gameSessions = [];
 wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         const data = JSON.parse(message);
-    
-        if (data.type === 'createOrJoinGame') {
-            let session = gameSessions.find(session => session.players.length < session.maxPlayers);
-    
-            if (!session) {
-                const sessionId = gameSessions.length + 1;
-                session = new GameSession(sessionId);
-                gameSessions.push(session);
-                ws.sessionId = sessionId;  // Save sessionId for player
-                ws.send(JSON.stringify({ type: 'gameCreated', sessionId, map: session.mapData}));
-            } else {
-                ws.sessionId = session.id;  // Save sessionId for player
-                ws.send(JSON.stringify({ type: 'joinedExistingGame', sessionId: session.id, map: session.mapData }));
+        switch (data.type) {
+            case 'getActiveSessions': {
+                const availableSessions = gameSessions.filter(session => session.players.length < session.maxPlayers);
+                ws.send(JSON.stringify({ 
+                    type: 'activeSessions', 
+                    sessions: availableSessions.map(session => session.id),
+                    players: availableSessions.map(session => session.players)
+                }));
+                break;
             }
-    
-            session.addPlayer(ws);
-        }
-        
-        if (data.type === 'updateMap') {
-            const mapUpdate = {
-                type: 'mapUpdate',
-                position: data.position,
-                newValue: data.newValue
-            };
-    
-            // Find a player's session by sessionId
-            const session = gameSessions.find(session => session.id === ws.sessionId);
+            case 'setName': {
+                if (data.name && data.name.trim() !== '') {
+                    ws.playerName = data.name.trim();
+                    ws.send(JSON.stringify({ 
+                        type: 'nameAcknowledged', 
+                        message: `Welcome, ${ws.playerName}!`
+                    }));
             
-            if (session) {
-                session.players.forEach(player => player.send(JSON.stringify(mapUpdate)));
-            } else {
-                console.error('Session not found for updateMap');
+                    // Проверяем, находится ли игрок уже в сессии
+                    const session = gameSessions.find(session => session.players.includes(ws));
+                    if (session) {
+                        const sessionData = {
+                            type: 'sessionUpdate',
+                            sessionId: session.id,
+                            players: session.players.map(player => ({
+                                name: player.playerName,
+                                position: session.positions[session.players.indexOf(player)],
+                            })),
+                            map: session.mapData,
+                        };
+                        // Уведомляем всех участников сессии
+                        session.players.forEach(player => player.send(JSON.stringify(sessionData)));
+                    }
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'error', 
+                        message: 'Invalid name. Please provide a valid name.' 
+                    }));
+                }
+                break;
             }
-        }
+            
+            case 'createOrJoinGame': {
+                let session = gameSessions.find(session => session.players.length <= session.maxPlayers);
+            
+                if (!session) {
+                    const sessionId = gameSessions.length + 1;
+                    session = new GameSession(sessionId);
+                    gameSessions.push(session);
+                    ws.sessionId = sessionId;  // Сохраняем sessionId для игрока
+                    ws.send(JSON.stringify({ 
+                        type: 'gameCreated', 
+                        sessionId, 
+                        map: session.mapData 
+                    }));
+                } else {
+                    ws.sessionId = session.id;  
+                    ws.send(JSON.stringify({ 
+                        type: 'joinedExistingGame', 
+                        sessionId: session.id, 
+                        map: session.mapData 
+                    }));
+                }
+            
+                // Добавляем игрока в сессию
+                session.addPlayer(ws);
+                break;
+            }
+            
+            case 'startGame': {
+                const session = gameSessions.find(session => session.id === ws.sessionId);
+                if (session) {
+                    session.startGame();
+                } else {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Game session not found' }));
+                }
+                break;
+            }
+            
+            case 'updateMap': {
+                const mapUpdate = {
+                    type: 'mapUpdate',
+                    position: data.position,
+                    newValue: data.newValue
+                };
 
-        if (data.type === 'movePlayer') {
-            //Handling player movement
-            const { newPosition } = data;
-            
-            // Find a player's session by sessionId
-            const session = gameSessions.find(session => session.id === ws.sessionId);
-            
-            if (session) {
-                session.updatePlayerPosition(ws, newPosition);
-            } else {
-                console.error('Session not found for player');
-            }
-        }
-    
-        if (data.type === 'placeBomb') {
-            // We send data about the new bomb to all players in the session
-            const bombData = {
-                type: 'bombPlaced',
-                position: data.position,
-                radius: data.radius
-            };
-        
-            // Find a player's session by sessionId
-            const session = gameSessions.find(session => session.id === ws.sessionId);
-            
-            // Check that the session exists before sending data
-            if (session) {
-                session.players.forEach(player => player.send(JSON.stringify(bombData)));
-            } else {
-                console.error('Session not found for placing bomb');
-            }
-        }
-        
+                const session = gameSessions.find(session => session.id === ws.sessionId);
 
-        if (data.type === 'getActiveSessions') {
-            const availableSessions = gameSessions.filter(session => session.players.length < session.maxPlayers);
-            ws.send(JSON.stringify({ type: 'activeSessions', sessions: availableSessions.map(session => session.id) }));
+                if (session) {
+                    session.players.forEach(player => player.send(JSON.stringify(mapUpdate)));
+                } else {
+                    console.error('Session not found for updateMap');
+                }
+                break;
+            }
+
+            case 'movePlayer': {
+                const { newPosition } = data;
+
+                const session = gameSessions.find(session => session.id === ws.sessionId);
+
+                if (session) {
+                    session.updatePlayerPosition(ws, newPosition);
+                } else {
+                    console.error('Session not found for player');
+                }
+                break;
+            }
+
+            case 'placeBomb': {
+                const bombData = {
+                    type: 'bombPlaced',
+                    position: data.position,
+                    radius: data.radius
+                };
+
+                const session = gameSessions.find(session => session.id === ws.sessionId);
+
+                if (session) {
+                    session.players.forEach(player => player.send(JSON.stringify(bombData)));
+                } else {
+                    console.error('Session not found for placing bomb');
+                }
+                break;
+            }
+
+            default:
+                console.error('Unknown message type:', data.type);
+                break;
         }
     });
-    
 
     ws.on('close', () => {
         console.log('Player disconnected');
         const session = gameSessions.find(session => session.id === ws.sessionId);
         if (session) {
-            session.players = session.players.filter(player => player !== ws);
-            session.positions = session.positions.filter((_, index) => index !== session.players.indexOf(ws));
+            const playerIndex = session.players.indexOf(ws);
+            session.players.splice(playerIndex, 1);
+            session.positions.splice(playerIndex, 1);
     
-            // We are sending updated information to all remaining players.
-            session.players.forEach(p => {
-                p.send(JSON.stringify({
+            // Уведомляем остальных игроков
+            session.players.forEach(player => {
+                player.send(JSON.stringify({
                     type: 'playerDisconnected',
-                    playerId: ws.sessionId,
+                    playerIndex: playerIndex + 1, // Индекс отключенного игрока
                 }));
             });
+    
+            // Удаляем сессию, если в ней не осталось игроков
+            if (session.players.length === 0) {
+                gameSessions.splice(gameSessions.indexOf(session), 1);
+            }
         }
     });
 });

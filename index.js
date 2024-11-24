@@ -2,12 +2,17 @@ import { Map } from './components/map.js'; // Importing the Map class for game m
 import { Player } from './components/player.js'; // Importing the Player class for player management
 import { Bomb } from './components/bomb.js'; // Importing the Bomb class for bomb management
 import { on } from './core/events.js'; // Importing the event handling function
+import {createElement, renderElements} from './core/dom.js'
 
 let player; // Variable to hold the player instance
 let ws; // Variable to hold the WebSocket connection
 let sessionId; // Variable to hold the session ID
 let gameMap = {}; // Object to hold the game map data
-const mapContainer = document.getElementById('game'); // Get the game container element
+const Container = document.getElementById('game'); // Get the game container element
+let countdownTimer;
+let countdownElement;
+let waitingTimer = null;
+let waitingTimerActive = false;
 
 // Function to initialize the WebSocket connection
 function initializeWebSocket() {
@@ -30,71 +35,299 @@ function handleServerMessage(data) {
     console.log("Received data:", data); // Log the received data
 
     // Switch case to handle different message types
-    switch (data.type) {
-        case 'mapUpdate':
-            updateMap(data); // Update the map based on received data
-            break;
-        case 'activeSessions':
-            handleActiveSessions(data.sessions); // Handle the list of active sessions
-            break;
-        case 'gameCreated':
-        case 'joinedExistingGame':
-            initializeGame(data); // Initialize the game based on received data
-            break;
-        case 'playerPosition':
-            renderPlayers(data.players); // Render the positions of players
-            break;
-        case 'bombPlaced':
-            placeBomb(data.position, data.radius); // Place a bomb based on received data
-            break;
-        case 'updatePlayerPosition':
-            updatePlayerPosition(data.playerIndex, data.position); // Update a player's position
-            break;
-        case 'gameStart':
-            console.log(data.message); // Log a message indicating the game has started
-            break;
-        case 'error':
-            console.error(data.message); // Log any errors received from the server
-            break;
-        default:
-            console.warn("Unknown message type:", data.type); // Warn for unknown message types
+  switch (data.type) {
+    case 'activeSessions':
+        handleActiveSessions(data.sessions);
+        break;
+    case 'sessionUpdate':
+        console.log('Session Update:', data);
+        updateLobby(data.players);
+        break; // Добавьте break, чтобы избежать попадания в следующие случаи
+    case 'gameCreated':
+    case 'joinedExistingGame':
+        console.log('Session Update:', data);
+        updateLobby(data.players);
+        break;
+    case 'gameStart':
+        console.log('Game Start:', data);
+        initializeGame(data);
+        break;
+    case 'mapUpdate':
+        updateMap(data);
+        break;
+    case 'bombPlaced':
+        placeBomb(data.position, data.radius);
+        break;
+    case 'updatePlayerPosition':
+        updatePlayerPosition(data.playerIndex, data.position);
+        break;
+    case 'error':
+        console.error(data.message);
+        break;
+    default:
+        console.warn("Unknown message type:", data.type);
+}
+
+}
+
+function promptPlayerName() {
+
+    const namePromptContainer = createElement('div', { id: `namePrompt`});
+    const h1 = createElement('h1', { id: `header`}, );
+    h1.textContent = 'Bomberman';
+    const nameInput = createElement('input', { type: `text`, placeholder: `Enter your name`});
+
+    const submitButton = createElement('button', {});
+    submitButton.textContent = 'Join the game';
+
+    renderElements(namePromptContainer, [h1, nameInput, submitButton]);
+    document.body.appendChild(namePromptContainer);
+
+    submitButton.addEventListener('click', () => {
+        const playerName = nameInput.value.trim();
+        if (playerName) {
+            ws.send(JSON.stringify({ 
+                type: 'setName', 
+                name: playerName 
+            }));
+            document.body.removeChild(namePromptContainer);
+        } else {
+            alert('Please enter a valid name!');
+        }
+    });
+}
+
+
+function updateLobby(players) {
+    Container.innerHTML = ''; // Очищаем контейнер
+    const lobbyElement = Container;
+
+    if (lobbyElement) {
+        lobbyElement.innerHTML = '';
+
+        // Создаем таблицу для игроков
+        const playerTable = createElement('table');
+        const tableHeader = createElement('tr');
+        ['#', 'Name', 'Position'].forEach(headerText => {
+            const th = createElement('th');
+            th.textContent = headerText;
+            tableHeader.appendChild(th);
+        });
+        playerTable.appendChild(tableHeader);
+
+        // Позиции игроков
+        const positions = [
+            'Top left corner',
+            'Top right corner',
+            'Bottom left corner',
+            'Bottom right corner'
+        ];
+
+        // Добавляем игроков в таблицу
+        players
+            .filter(player => player.name && player.name.trim() !== '') 
+            .forEach((player, index) => {
+                const playerRow = createElement('tr');
+
+                const indexCell = createElement('td');
+                indexCell.textContent = `${index + 1}`;
+
+                const nameCell = createElement('td');
+                nameCell.textContent = player.name;
+
+                const positionCell = createElement('td');
+                positionCell.textContent = positions[index] || 'Position not set';
+
+                playerRow.appendChild(indexCell);
+                playerRow.appendChild(nameCell);
+                playerRow.appendChild(positionCell);
+                playerTable.appendChild(playerRow);
+            });
+
+        lobbyElement.appendChild(playerTable);
+
+        // Блок чата
+        const chatBlock = createElement('div', { class: 'chat-block' });
+        const chatMessages = createElement('div', { class: 'chat-messages' });
+        const chatForm = createElement('form', { class: 'chat-form' });
+        const chatInput = createElement('input', { class: 'chat-input', type: 'text', placeholder: 'Enter your message' });
+        const sendButton = createElement('button', { type: 'submit' });
+        sendButton.textContent = 'Send';
+
+        chatForm.appendChild(chatInput);
+        chatForm.appendChild(sendButton);
+
+        chatBlock.appendChild(chatMessages);
+        chatBlock.appendChild(chatForm);
+        lobbyElement.appendChild(chatBlock);
+
+        on(chatForm, 'submit', (e) => {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            const sender = players.find(player => player.name && player.name.trim() !== '');
+            if (message && sender) {
+                const messageElement = createElement('div');
+                messageElement.textContent = `${sender.name}: ${message}`;
+                chatMessages.appendChild(messageElement);
+                chatInput.value = '';
+                chatMessages.scrollTop = chatMessages.scrollHeight; // Скролл к последнему сообщению
+            }
+        });
+
+        // Проверяем количество игроков и их имена
+        const allPlayersHaveNames = players.every(player => player.name && player.name.trim() !== '');
+        const hasEnoughPlayers = players.length >= 1;
+
+        // Условие для запуска ожидания
+        if (hasEnoughPlayers && allPlayersHaveNames && !waitingTimerActive) {
+            waitingTimerActive = true;
+            startWaitingPhase(
+                () => players.length >= 4 && allPlayersHaveNames, 
+                () => {
+                    waitingTimerActive = false; 
+                    console.log('Game Started!');
+                }
+            );
+        } else if (!hasEnoughPlayers || !allPlayersHaveNames) {
+            waitingTimerActive = false;
+            stopCountdown(); 
+        }
     }
+}
+
+
+
+function startWaitingPhase(checkUsersReady, startGame) {
+    if (waitingTimer) return; // Прерываем, если таймер уже запущен
+
+    let waitingTimeLeft = 20; // Время ожидания двух пользователей
+    const waitingElement = document.createElement('div');
+    waitingElement.className = 'waiting';
+    waitingElement.textContent = `Waiting for players: ${waitingTimeLeft}s`;
+    document.body.appendChild(waitingElement);
+
+    waitingTimer = setInterval(() => {
+        waitingTimeLeft--;
+        waitingElement.textContent = `Waiting for players: ${waitingTimeLeft}s`;
+
+        if (waitingTimeLeft <= 0 || checkUsersReady()) {
+            clearInterval(waitingTimer);
+            waitingTimer = null;
+            document.body.removeChild(waitingElement);
+            startCountdown(startGame);
+        }
+    }, 1000);
+}
+
+
+function startCountdown() {
+    if (countdownTimer) return; // Прерываем, если таймер уже запущен
+
+    let secondsLeft = 10; // Количество секунд для обратного отсчёта
+
+    if (!countdownElement) {
+        countdownElement = document.createElement('div');
+        countdownElement.className = 'countdown';
+        document.body.appendChild(countdownElement);
+    }
+
+    countdownElement.textContent = `Game starts in: ${secondsLeft}s`;
+
+    countdownTimer = setInterval(() => {
+        secondsLeft--;
+        countdownElement.textContent = `Game starts in: ${secondsLeft}s`;
+
+        if (secondsLeft <= 0) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            document.body.removeChild(countdownElement);
+            countdownElement = null;
+            startGame(); // Запускаем игру, когда таймер достигает 0
+        }
+    }, 1000);
+}
+
+
+function stopCountdown() {
+    if (countdownTimer) {
+        clearInterval(countdownTimer); // Останавливаем таймер
+        countdownTimer = null;
+
+        // Убираем элемент обратного отсчёта с экрана
+        if (countdownElement) {
+            countdownElement.textContent = '';
+        }
+    }
+}
+
+
+function startGame() {
+    console.log("Starting the game...");
+    ws.send(JSON.stringify({ type: 'startGame' }));
 }
 
 // Function to update the game map based on server data
 function updateMap({ x, y, newValue }) {
-    gameMap.mapData[y][x] = newValue; // Update the map data at the specified coordinates
+    gameMap.mapData[x][y] = newValue; // Update the map data at the specified coordinates
     gameMap.destroyWall(x, y); // Destroy the wall at the specified coordinates
     gameMap.render(); // Re-render the map
 }
 
 // Function to initialize the game with the received data
 function initializeGame(data) {
+    Container.innerHTML = '';
+    const MapContainer = createElement('div',{class: 'map-container '});
+    Container.appendChild(MapContainer);
     sessionId = data.sessionId; // Set the session ID from the data
-    gameMap = new Map(mapContainer, data.map, ws); // Create a new map instance
+    gameMap = new Map(MapContainer, data.map, ws);
 
-    // Create a new player instance and set their position
+
+    // Создаем объект player до рендеринга игроков
     player = new Player(document.createElement('div'), 40, gameMap, ws);
-    if (data.startingPosition) {
-        player.setPosition(data.startingPosition.x, data.startingPosition.y); // Set player position
+    if (data.position) {
+        player.setPosition(data.position.x, data.position.y); // Set player position
     } else {
-        console.error("Starting position not found in data."); // Log error if position is not found
+        console.error("Starting position not found in data.");
+    }
+
+    if (Array.isArray(data.players) && data.players.length > 0) {
+        console.log('Player render:', data.players);
+        renderPlayers(data.players, data.yourIndex); // Теперь рендерим игроков после создания player
+    } else {
+        console.warn("Players data not found or invalid during initialization.");
     }
 }
+
+
 
 // Function to render all players on the map
-function renderPlayers(players) {
+function renderPlayers(players, yourIndex) {
+    if (!Array.isArray(players) || players.length === 0) {
+        console.error('Invalid players data received.');
+        return;
+    }
+
     players.forEach(p => {
-        gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y); // Render each player's position
+        console.log('Player position:', p.position);
+        if (p.position) {
+            gameMap.renderPlayer(p.playerIndex, p.position.x, p.position.y); // Render each player's position
+        } else {
+            console.error(`Position not found for player ${p.playerIndex}`);
+        }
     });
 
-    // Check if the starting position for the player is available
-    if (data.startingPosition) {
-        player.setPosition(data.startingPosition.x, data.startingPosition.y); // Set player position
+    // Check if the starting position for the current player is available
+    const currentPlayer = players.find(p => p.playerIndex === yourIndex); // Find the current player
+    if (currentPlayer && currentPlayer.position) {
+        console.log('Current player position:', currentPlayer.position);
+        player.setPosition(currentPlayer.position.x, currentPlayer.position.y); // Set player position
     } else {
-        console.error("Starting position not found in data."); // Log error if position is not found
+        console.error("Starting position not found for the current player.");
     }
 }
+
+
+
 
 // Function to place a bomb at the specified position
 function placeBomb(position, radius) {
@@ -109,16 +342,14 @@ function updatePlayerPosition(playerIndex, position) {
 // Function to handle active game sessions
 function handleActiveSessions(sessions) {
     if (sessions.length > 0) {
-        // If there are available sessions, prompt the user to join one
-        const joinExisting = confirm(`Available sessions: ${sessions.join(', ')}. Join one?`);
-        if (joinExisting) {
             sessionId = sessions[0]; // Set the session ID to the first available session
-            ws.send(JSON.stringify({ type: 'createOrJoinGame', sessionId })); // Join the selected session
-        } else {
-            ws.send(JSON.stringify({ type: 'createOrJoinGame' })); // Create a new game session
-        }
+            ws.send(JSON.stringify({ 
+                type: 'createOrJoinGame', 
+                sessionId })); // Join the selected session
     } else {
-        ws.send(JSON.stringify({ type: 'createOrJoinGame' })); // Create a new game session if no active sessions
+        ws.send(JSON.stringify({ 
+            type: 'createOrJoinGame' 
+        })); // Create a new game session if no active sessions
     }
 }
 
@@ -142,5 +373,6 @@ on(document, 'keydown', (event) => {
 
 // Event listener for DOMContentLoaded to initialize the WebSocket connection
 document.addEventListener("DOMContentLoaded", () => {
+    promptPlayerName();
     initializeWebSocket(); // Call function to initialize WebSocket connection when DOM is fully loaded
 });
