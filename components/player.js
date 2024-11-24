@@ -1,14 +1,28 @@
 import { Bomb } from "./bomb.js";
 
 export class Player {
-    constructor(element, speed, gameMap, ws) { // Adding ws as a parameter
+    constructor(element, speed, gameMap, ws, name, index) { // Adding ws as a parameter
         this.element = element;
         this.speed = speed;
         this.gameMap = gameMap;
         this.ws = ws; // Storing ws for use in methods
+        this.name = name; // Player's name
+        this.index = index; // Player's index
+        this.color = this.getColorForIndex(index); // Assign color based on index
+
+        // Stats
+        this.lives = 3; // Placeholder for lives logic
+        this.bombCount = 1; // Placeholder for bomb count logic
+        this.explosionRange = 1; // Placeholder for explosion range logic
+
         this.x = 0;
         this.y = 0;
         this.updatePosition();
+    }
+
+    getColorForIndex(index) {
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        return colors[index - 1];
     }
 
     setPosition(x, y) {
@@ -60,5 +74,15 @@ export class Player {
         if (this.gameMap.isPassable(newX, newY)) {
             this.setPosition(newX, newY);
         }
+    }
+
+    // Placeholder method for updating lives
+    updateLives() {
+      // Logic for updating player lives will go here
+    }
+
+    // Placeholder method for handling power-ups
+    applyPowerUp(type) {
+      // Logic for applying power-ups will go here
     }
 }
