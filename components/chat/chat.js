@@ -16,7 +16,41 @@ export class Chat {
         });
     }
 
-    setupUI() { }
+    setupUI() {
+        // Create main chat container
+        this.chatContainer = createElement('div', {
+            class: 'chat'
+        });
+
+        // Create messages container
+        this.messagesContainer = createElement('div', {
+            class: 'chat-messages'
+        });
+
+        // Create input container
+        this.inputContainer = createElement('div', {
+            class: 'chat-input'
+        });
+
+        // Create input field
+        this.input = createElement('input', {
+            type: 'text',
+            placeholder: 'Type message...',
+            class: 'chat-input-field'
+        });
+
+        // Create send button
+        this.sendButton = createElement('button', {
+            class: 'chat-send-button'
+        });
+        this.sendButton.textContent = 'Send';
+
+        // Assemble the UI using your renderElements utility
+        renderElements(this.inputContainer, [this.input, this.sendButton]);
+        renderElements(this.chatContainer, [this.messagesContainer, this.inputContainer]);
+        renderElements(this.container, [this.chatContainer]);
+    }
+
     bindEvents() { }
 }
 
