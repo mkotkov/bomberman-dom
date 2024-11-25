@@ -59,13 +59,24 @@ class GameSession {
             console.log('PlayerId Data:', playerIndex);
             console.log('Position Data:', position);
     
-            // Sending data with expected field startingPosition
+            // Initialize player attributes
+            player.playerIndex = playerIndex + 1;
+            player.color = ['blue', 'red', 'green', 'yellow'][playerIndex];
+            player.lives = 3;
+            player.bombCount = 1;
+            player.explosionRange = 1;
+            player.speed = 1;
+
+            console.log('PlayerId Data:', playerIndex);
+            console.log('Position Data:', position);
+
+            // Send initial data to the new player
             player.send(JSON.stringify({
-                type: 'playerPosition',
-                startingPosition: position,
-                position: { playerIndex: playerIndex + 1, position },
-                map: this.mapData,
-                players: this.getPlayersPositions(),
+            type: 'playerPosition',
+            startingPosition: position,
+            position: { playerIndex: player.playerIndex, position },
+            map: this.mapData,
+            players: this.getPlayersPositions(),
             }));
     
             // Sending updated map data to all players
@@ -112,11 +123,17 @@ class GameSession {
     
 
     getPlayersPositions() {
-        return this.players.map((player, index) => ({
-            playerIndex: index + 1,
-            position: startingPositions[index],
+        return this.players.map((player) => ({
+            name: player.playerName,
+            color: player.color,
+            lives: player.lives,
+            bombCount: player.bombCount,
+            explosionRange: player.explosionRange,
+            speed: player.speed,
+            position: this.positions[this.players.indexOf(player)],
         }));
     }
+
 
     updatePlayerPosition(player, newPosition) {
         const playerIndex = this.players.indexOf(player);
@@ -276,6 +293,26 @@ wss.on('connection', (ws) => {
                 }
                 break;
             }
+
+            case 'updatePlayerStats':
+                const { playerIndex, stats } = data;
+                const session = gameSessions.find(session => session.id === ws.sessionId);
+                    if (session) {
+                        const player = session.players[playerIndex];
+                        if (player) {
+                        player.lives = stats.lives;
+                        player.bombCount = stats.bombCount;
+                        player.explosionRange = stats.explosionRange;
+                        player.speed = stats.speed;
+
+                        session.broadcastToPlayers({
+                            type: 'updatePlayerStats',
+                            playerIndex,
+                            stats
+            });
+        }
+    }
+    break;
 
             default:
                 console.error('Unknown message type:', data.type);

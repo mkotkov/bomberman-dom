@@ -35,39 +35,41 @@ function handleServerMessage(data) {
     console.log("Received data:", data); // Log the received data
 
     // Switch case to handle different message types
-  switch (data.type) {
-    case 'activeSessions':
-        handleActiveSessions(data.sessions);
-        break;
-    case 'sessionUpdate':
-        console.log('Session Update:', data);
-        updateLobby(data.players);
-        break; // Добавьте break, чтобы избежать попадания в следующие случаи
-    case 'gameCreated':
-    case 'joinedExistingGame':
-        console.log('Session Update:', data);
-        updateLobby(data.players);
-        break;
-    case 'gameStart':
-        console.log('Game Start:', data);
-        initializeGame(data);
-        break;
-    case 'mapUpdate':
-        updateMap(data);
-        break;
-    case 'bombPlaced':
-        placeBomb(data.position, data.radius);
-        break;
-    case 'updatePlayerPosition':
-        updatePlayerPosition(data.playerIndex, data.position);
-        break;
-    case 'error':
-        console.error(data.message);
-        break;
-    default:
-        console.warn("Unknown message type:", data.type);
-}
-
+    switch (data.type) {
+        case 'activeSessions':
+            handleActiveSessions(data.sessions);
+            break;
+        case 'sessionUpdate':
+            console.log('Session Update:', data);
+            updateLobby(data.players); // Pass updated players info to updateLobby
+            break; // Добавьте break, чтобы избежать попадания в следующие случаи
+        case 'gameCreated':
+        case 'joinedExistingGame':
+            console.log('Session Update:', data);
+            updateLobby(data.players);
+            break;
+        case 'gameStart':
+            console.log('Game Start:', data);
+            initializeGame(data);
+            break;
+        case 'mapUpdate':
+            updateMap(data);
+            break;
+        case 'bombPlaced':
+            placeBomb(data.position, data.radius);
+            break;
+        case 'updatePlayerPosition':
+            updatePlayerPosition(data.playerIndex, data.position);
+            break;
+        case 'updatePlayerStats':
+            updatePlayerStats(data.playerIndex, data.stats);
+            break;
+        case 'error':
+            console.error(data.message);
+            break;
+        default:
+            console.warn("Unknown message type:", data.type);
+    }
 }
 
 function promptPlayerName() {
@@ -86,10 +88,8 @@ function promptPlayerName() {
     submitButton.addEventListener('click', () => {
         const playerName = nameInput.value.trim();
         if (playerName) {
-            ws.send(JSON.stringify({ 
-                type: 'setName', 
-                name: playerName 
-            }));
+            sessionStorage.setItem('playerName', playerName); // Store the name
+            ws.send(JSON.stringify({ type: 'setName', name: playerName }));
             document.body.removeChild(namePromptContainer);
         } else {
             alert('Please enter a valid name!');
@@ -98,24 +98,27 @@ function promptPlayerName() {
 }
 
 
+// Function to update lobby with player information
 function updateLobby(players) {
-    Container.innerHTML = ''; // Очищаем контейнер
+    Container.innerHTML = ''; // Clear container
     const lobbyElement = Container;
 
     if (lobbyElement) {
-        lobbyElement.innerHTML = '';
+        lobbyElement.innerHTML = ''; // Clear existing content
 
-        // Создаем таблицу для игроков
+        // Create table for players
         const playerTable = createElement('table');
         const tableHeader = createElement('tr');
-        ['#', 'Name', 'Position'].forEach(headerText => {
+        
+        ['#', 'Name', 'Color', 'Lives', 'Bombs', 'Range', 'Speed', 'Position'].forEach(headerText => {
             const th = createElement('th');
             th.textContent = headerText;
             tableHeader.appendChild(th);
         });
+        
         playerTable.appendChild(tableHeader);
 
-        // Позиции игроков
+        // Define positions for players
         const positions = [
             'Top left corner',
             'Top right corner',
@@ -123,78 +126,107 @@ function updateLobby(players) {
             'Bottom right corner'
         ];
 
-        // Добавляем игроков в таблицу
+        // Add players to table
         players
-            .filter(player => player.name && player.name.trim() !== '') 
+            .filter(player => player.name && player.name.trim() !== '')
             .forEach((player, index) => {
-                const playerRow = createElement('tr');
+            const playerRow = createElement('tr');
 
-                const indexCell = createElement('td');
-                indexCell.textContent = `${index + 1}`;
+            // Index
+            const indexCell = createElement('td');
+            indexCell.textContent = `${index + 1}`;
+            
+            // Name
+            const nameCell = createElement('td');
+            nameCell.textContent = player.name;
+            
+            // Color
+            const colorCell = createElement('td');
+            colorCell.style.backgroundColor = player.color; // Use player's color
+            colorCell.style.width = '20px';
+            colorCell.style.height = '20px';
+            
+            // Lives
+            const livesCell = createElement('td');
+            livesCell.textContent = player.lives || 3; // Default value
+            
+            // Bombs
+            const bombsCell = createElement('td');
+            bombsCell.textContent = player.bombCount || 1; // Default value
+            
+            // Range
+            const rangeCell = createElement('td');
+            rangeCell.textContent = player.explosionRange || 1; // Default value
+            
+            // Speed
+            const speedCell = createElement('td');
+            speedCell.textContent = player.speed || 1; // Default value
+            
+            // Position
+            const positionCell = createElement('td');
+            positionCell.textContent = positions[index] || 'Position not set';
+            
+            playerRow.appendChild(indexCell);
+            playerRow.appendChild(nameCell);
+            playerRow.appendChild(colorCell);
+            playerRow.appendChild(livesCell);
+            playerRow.appendChild(bombsCell);
+            playerRow.appendChild(rangeCell);
+            playerRow.appendChild(speedCell);
+            playerRow.appendChild(positionCell);
 
-                const nameCell = createElement('td');
-                nameCell.textContent = player.name;
+            
+            playerTable.appendChild(playerRow); }); lobbyElement.appendChild(playerTable); } 
 
-                const positionCell = createElement('td');
-                positionCell.textContent = positions[index] || 'Position not set';
+            // Блок чата
+            const chatBlock = createElement('div', { class: 'chat-block' });
+            const chatMessages = createElement('div', { class: 'chat-messages' });
+            const chatForm = createElement('form', { class: 'chat-form' });
+            const chatInput = createElement('input', { class: 'chat-input', type: 'text', placeholder: 'Enter your message' });
+            const sendButton = createElement('button', { type: 'submit' });
+            sendButton.textContent = 'Send';
 
-                playerRow.appendChild(indexCell);
-                playerRow.appendChild(nameCell);
-                playerRow.appendChild(positionCell);
-                playerTable.appendChild(playerRow);
+            chatForm.appendChild(chatInput);
+            chatForm.appendChild(sendButton);
+
+            chatBlock.appendChild(chatMessages);
+            chatBlock.appendChild(chatForm);
+            lobbyElement.appendChild(chatBlock);
+
+            on(chatForm, 'submit', (e) => {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                const sender = players.find(player => player.name && player.name.trim() !== '');
+                if (message && sender) {
+                    const messageElement = createElement('div');
+                    messageElement.textContent = `${sender.name}: ${message}`;
+                    chatMessages.appendChild(messageElement);
+                    chatInput.value = '';
+                    chatMessages.scrollTop = chatMessages.scrollHeight; // Скролл к последнему сообщению
+                }
             });
 
-        lobbyElement.appendChild(playerTable);
+            // Проверяем количество игроков и их имена
+            const allPlayersHaveNames = players.every(player => player.name && player.name.trim() !== '');
+            const hasEnoughPlayers = players.length >= 1;
 
-        // Блок чата
-        const chatBlock = createElement('div', { class: 'chat-block' });
-        const chatMessages = createElement('div', { class: 'chat-messages' });
-        const chatForm = createElement('form', { class: 'chat-form' });
-        const chatInput = createElement('input', { class: 'chat-input', type: 'text', placeholder: 'Enter your message' });
-        const sendButton = createElement('button', { type: 'submit' });
-        sendButton.textContent = 'Send';
+            // Условие для запуска ожидания
+            if (hasEnoughPlayers && allPlayersHaveNames && !waitingTimerActive) {
+                waitingTimerActive = true;
+                startWaitingPhase(
+                    () => players.length >= 4 && allPlayersHaveNames, 
+                    () => {
+                        waitingTimerActive = false; 
+                        console.log('Game Started!');
+                    }
+                );
+            } 
 
-        chatForm.appendChild(chatInput);
-        chatForm.appendChild(sendButton);
-
-        chatBlock.appendChild(chatMessages);
-        chatBlock.appendChild(chatForm);
-        lobbyElement.appendChild(chatBlock);
-
-        on(chatForm, 'submit', (e) => {
-            e.preventDefault();
-            const message = chatInput.value.trim();
-            const sender = players.find(player => player.name && player.name.trim() !== '');
-            if (message && sender) {
-                const messageElement = createElement('div');
-                messageElement.textContent = `${sender.name}: ${message}`;
-                chatMessages.appendChild(messageElement);
-                chatInput.value = '';
-                chatMessages.scrollTop = chatMessages.scrollHeight; // Скролл к последнему сообщению
-            }
-        });
-
-        // Проверяем количество игроков и их имена
-        const allPlayersHaveNames = players.every(player => player.name && player.name.trim() !== '');
-        const hasEnoughPlayers = players.length >= 1;
-
-        // Условие для запуска ожидания
-        if (hasEnoughPlayers && allPlayersHaveNames && !waitingTimerActive) {
-            waitingTimerActive = true;
-            startWaitingPhase(
-                () => players.length >= 4 && allPlayersHaveNames, 
-                () => {
-                    waitingTimerActive = false; 
-                    console.log('Game Started!');
+            else if (!hasEnoughPlayers || !allPlayersHaveNames) {
+                waitingTimerActive = false;
+                stopCountdown(); 
                 }
-            );
-        } else if (!hasEnoughPlayers || !allPlayersHaveNames) {
-            waitingTimerActive = false;
-            stopCountdown(); 
-        }
-    }
 }
-
 
 
 function startWaitingPhase(checkUsersReady, startGame) {
@@ -273,31 +305,59 @@ function updateMap({ x, y, newValue }) {
     gameMap.render(); // Re-render the map
 }
 
+
 // Function to initialize the game with the received data
 function initializeGame(data) {
     Container.innerHTML = '';
-    const MapContainer = createElement('div',{class: 'map-container '});
+    const MapContainer = createElement('div', {class: 'map-container'});
     Container.appendChild(MapContainer);
+
+    const hudContainer = createElement('div', { class: 'hud-container' });
+    Container.appendChild(hudContainer);
+
     sessionId = data.sessionId; // Set the session ID from the data
     gameMap = new Map(MapContainer, data.map, ws);
 
+    // Retrieve the player name from sessionStorage
+    const playerName = sessionStorage.getItem('playerName');
 
-    // Создаем объект player до рендеринга игроков
-    player = new Player(document.createElement('div'), 40, gameMap, ws);
+    // Create the player object with the name
+    player = new Player(document.createElement('div'), 40, gameMap, ws, playerName, data.yourIndex);
+
     if (data.position) {
         player.setPosition(data.position.x, data.position.y); // Set player position
     } else {
         console.error("Starting position not found in data.");
     }
 
+     // Create player info elements
+  data.players.forEach((playerData, index) => {
+    const playerInfo = createElement('div', { class: 'player-info' });
+    
+    const nameElement = createElement('span', { class: 'player-name' });
+    nameElement.textContent = playerData.name;
+    nameElement.style.color = playerData.color;
+    
+    const statsElement = createElement('div', { class: 'player-stats' });
+    statsElement.innerHTML = `
+      Lives: ${playerData.lives}
+      Bombs: ${playerData.bombCount}
+      Range: ${playerData.explosionRange}
+      Speed: ${playerData.speed}
+    `;
+    
+    playerInfo.appendChild(nameElement);
+    playerInfo.appendChild(statsElement);
+    hudContainer.appendChild(playerInfo);
+  });
+
     if (Array.isArray(data.players) && data.players.length > 0) {
         console.log('Player render:', data.players);
-        renderPlayers(data.players, data.yourIndex); // Теперь рендерим игроков после создания player
+        renderPlayers(data.players, data.yourIndex);
     } else {
         console.warn("Players data not found or invalid during initialization.");
     }
 }
-
 
 
 // Function to render all players on the map
@@ -337,6 +397,38 @@ function placeBomb(position, radius) {
 // Function to update a player's position on the map
 function updatePlayerPosition(playerIndex, position) {
     gameMap.renderPlayer(playerIndex, position.x, position.y); // Render the updated player position
+}
+
+function updatePlayerStats(playerIndex, stats) {
+    if (player && player.index === playerIndex) {
+        player.lives = stats.lives;
+        player.bombCount = stats.bombCount;
+        player.explosionRange = stats.explosionRange;
+        player.speed = stats.speed;
+    }
+    updateHUD();
+}
+
+function updateHUD(players) {
+    const hudContainer = document.querySelector('.hud-container');
+    hudContainer.innerHTML = ''; // Clear existing HUD content
+    if (!hudContainer) return;
+
+    players.forEach(playerData => {
+        const playerInfo = hudContainer.querySelector(`.player-info[data-index="${player.index}"]`);
+        if (playerInfo) {
+            const statsElement = playerInfo.querySelector('.player-stats');
+            statsElement.innerHTML = `
+                Lives: ${player.lives}
+                Bombs: ${player.bombCount}
+                Range: ${player.explosionRange}
+                Speed: ${player.speed}
+        `;
+
+        playerInfo.appendChild(nameElement);
+        playerInfo.appendChild(statsElement);
+        hudContainer.appendChild(playerInfo);
+    }});
 }
 
 // Function to handle active game sessions
