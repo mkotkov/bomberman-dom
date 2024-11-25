@@ -75,50 +75,35 @@ export class Chat {
         this.ws.send(JSON.stringify(chatMessage));
         this.input.value = '';
     }
-
-renderMessages(messages) {
-    // Clear existing messages
-    this.messagesContainer.innerHTML = '';
-
-    // Create message elements
-    const messageElements = messages.map(message => {
-        return createElement('div', {
-            class: 'message',
-            innerHTML: `<span class="player">${message.creator}:</span> ${message.body}`
-        });
-    });
-
-    // Render using your utility
-    renderElements(this.messagesContainer, messageElements);
     
-    // Scroll to bottom
-    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    handleMessage(message) {
+        if (message.type !== 'CHAT_MESSAGE') return false;
+        
+        const currentState = chatState.getState();
+        chatState.setState({
+            messages: [...currentState.messages, message].slice(-100) // Keep last 100 messages
+        });
+        
+        return true;
     }
 }
-// export class Chat {
-//     constructor() {
-//         this.container = createElement('div', { class: 'chat' });
-//         this.input = createElement('input', { type: 'text', placeholder: 'Enter your message' });
-//         this.sendButton = createElement('button', { type: 'button', textContent: 'Send' });
-//         this.messagesContainer = createElement('div', { class: 'messages' });
-//         this.container.appendChild(this.input);
-//         this.container.appendChild(this.sendButton);
-//         this.container.appendChild(this.messagesContainer);
-//         renderElements(document.body, this.container);
-//         this.bindEvents();
-//     }
 
-//     bindEvents() {
-//         on(this.sendButton, 'click', () => {
-//             if (this.input.value) {
-//                 chatService.sendMessage(this.input.value);
-//                 this.input.value = '';
-//             }
+// renderMessages(messages) {
+//     // Clear existing messages
+//     this.messagesContainer.innerHTML = '';
+
+//     // Create message elements
+//     const messageElements = messages.map(message => {
+//         return createElement('div', {
+//             class: 'message',
+//             innerHTML: `<span class="player">${message.creator}:</span> ${message.body}`
 //         });
-//     }
+//     });
 
-//     addMessage(message) {
-//         const messageElement = createElement('div', { class: 'message', textContent: message });
-//         this.messagesContainer.appendChild(messageElement);
+//     // Render using your utility
+//     renderElements(this.messagesContainer, messageElements);
+    
+//     // Scroll to bottom
+//     this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 //     }
-// }   
+// }
