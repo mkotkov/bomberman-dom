@@ -13,6 +13,7 @@ class GameSession {
         this.maxPlayers = maxPlayers;
         this.players = [];
         this.positions = [];
+        this.bombs = [];
         console.log(`Creating GameSession with id: ${id}`);
         this.mapData = this.generateMap();
         console.log('Map Data:', this.mapData);
@@ -74,9 +75,9 @@ class GameSession {
             player.send(JSON.stringify({
             type: 'playerPosition',
             startingPosition: position,
-            position: { playerIndex: player.playerIndex, position },
-            map: this.mapData,
-            players: this.getPlayersPositions(),
+            position: { playerIndex: playerIndex + 1, position },
+                map: this.mapData,
+                players: this.getPlayersPositions(),
             }));
     
             // Sending updated map data to all players
@@ -123,17 +124,17 @@ class GameSession {
     
 
     getPlayersPositions() {
-        return this.players.map((player) => ({
+        return this.players.map((player, index) => ({
+            playerIndex: index + 1,
             name: player.playerName,
             color: player.color,
             lives: player.lives,
             bombCount: player.bombCount,
             explosionRange: player.explosionRange,
             speed: player.speed,
-            position: this.positions[this.players.indexOf(player)],
+            position: startingPositions[index],
         }));
     }
-
 
     updatePlayerPosition(player, newPosition) {
         const playerIndex = this.players.indexOf(player);
@@ -159,6 +160,35 @@ class GameSession {
                 player.ws.send(JSON.stringify(message));
             }
         });
+    }
+
+    removePlayer(player) {
+        const index = this.players.indexOf(player);
+        if (index !== -1) {
+            this.players.splice(index, 1); 
+            this.positions.splice(index, 1);
+            console.log(`Player removed. Players left: ${this.players.length}`);
+            this.checkGameOver();
+        }
+    }
+
+    checkGameOver() {
+        if (this.players.length === 1) {
+            const winner = this.players[0];
+            console.log(`Game Over! Winner: ${winner.playerName}`);
+            this.broadcastToPlayers({
+                type: 'gameOver',
+                winner: {
+                    name: winner.playerName,
+                    color: winner.color,
+                },
+            });
+            this.players.forEach(player => player.close());
+            const index = gameSessions.indexOf(this);
+            if (index !== -1) {
+                gameSessions.splice(index, 1);
+            }
+        }
     }
 }
 
@@ -186,7 +216,6 @@ wss.on('connection', (ws) => {
                         message: `Welcome, ${ws.playerName}!`
                     }));
             
-                    // Проверяем, находится ли игрок уже в сессии
                     const session = gameSessions.find(session => session.players.includes(ws));
                     if (session) {
                         const sessionData = {
@@ -198,7 +227,7 @@ wss.on('connection', (ws) => {
                             })),
                             map: session.mapData,
                         };
-                        // Уведомляем всех участников сессии
+
                         session.players.forEach(player => player.send(JSON.stringify(sessionData)));
                     }
                 } else {
@@ -278,21 +307,67 @@ wss.on('connection', (ws) => {
             }
 
             case 'placeBomb': {
+                console.log(`Received 'placeBomb' event with data:`, data);
+            
                 const bombData = {
                     type: 'bombPlaced',
                     position: data.position,
                     radius: data.radius
                 };
-
+            
+                console.log(`Bomb placed at position (${bombData.position.x}, ${bombData.position.y}) with radius ${bombData.radius}`);
+            
                 const session = gameSessions.find(session => session.id === ws.sessionId);
-
+            
                 if (session) {
-                    session.players.forEach(player => player.send(JSON.stringify(bombData)));
+                    console.log(`Session found for bomb placement. Session ID: ${ws.sessionId}`);
+            
+                    session.players.forEach(player => {
+                        const playerIndex = session.players.indexOf(player);
+                        const playerPosition = session.positions[playerIndex];
+            
+                        console.log(`Checking player ${player.playerName} at position (${playerPosition.x}, ${playerPosition.y})`);
+            
+                        // Вычисление расстояния между игроком и взрывом
+                        const dx = playerPosition.x - (bombData.position.x*40);
+                        const dy = playerPosition.y - (bombData.position.y*40);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        console.log(`Distance from bomb to player ${player.playerName}: ${distance}`);
+            
+                        // Проверка попадания в радиус взрыва
+                        if (distance <=  40) { // 40 — размер клетки (например)
+                            player.lives -= 1; // Уменьшаем количество жизней
+                            console.log(`Player ${player.playerName} hit! Lives left: ${player.lives}`);
+                            
+                            // Проверяем, остались ли у игрока жизни
+                            if (player.lives <= 0) {
+                                console.log(`Player ${player.playerName} eliminated!`);
+                                session.removePlayer(player);
+                            }
+                        } else {
+                            console.log(`Player ${player.playerName} is safe from the explosion.`);
+                        }
+                    });
+            
+                    console.log(`Broadcasting bomb explosion to players in session ${ws.sessionId}`);
+                    session.broadcastToPlayers({
+                        type: 'bombExploded',
+                        position: bombData.position,
+                        radius: bombData.radius,
+                    });
+            
+                    session.players.forEach(player => {
+                        player.send(JSON.stringify(bombData));
+                        console.log(`Bomb data sent to player ${player.playerName}`);
+                    });
                 } else {
                     console.error('Session not found for placing bomb');
                 }
                 break;
             }
+            
+            
 
             case 'updatePlayerStats':
                 const { playerIndex, stats } = data;
@@ -332,7 +407,8 @@ wss.on('connection', (ws) => {
             session.players.forEach(player => {
                 player.send(JSON.stringify({
                     type: 'playerDisconnected',
-                    playerIndex: playerIndex + 1, // Индекс отключенного игрока
+                    playerIndex: playerIndex + 1,
+                    players: session.players,
                 }));
             });
     
@@ -340,6 +416,7 @@ wss.on('connection', (ws) => {
             if (session.players.length === 0) {
                 gameSessions.splice(gameSessions.indexOf(session), 1);
             }
+            session.removePlayer(ws);
         }
     });
 });

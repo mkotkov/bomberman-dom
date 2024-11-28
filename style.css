@@ -212,3 +212,12 @@ td {
 th, td:first-child {
     text-align: center;
 }
+
+
+.game-over-message{
+    display: flex;
+    justify-self: center;
+    align-items: center;
+    text-align: center;
+    font-size: 2rem;
+}
