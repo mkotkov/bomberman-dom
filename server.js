@@ -336,7 +336,7 @@ wss.on('connection', (ws) => {
                         console.log(`Distance from bomb to player ${player.playerName}: ${distance}`);
             
                         // Проверка попадания в радиус взрыва
-                        if (distance <=  40) { // 40 — размер клетки (например)
+                        if (distance <= bombData.radius * 40) { // 40 — размер клетки (например)
                             player.lives -= 1; // Уменьшаем количество жизней
                             console.log(`Player ${player.playerName} hit! Lives left: ${player.lives}`);
                             
