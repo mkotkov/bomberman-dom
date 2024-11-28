@@ -8,7 +8,7 @@ let player; // Variable to hold the player instance
 let ws; // Variable to hold the WebSocket connection
 let sessionId; // Variable to hold the session ID
 let gameMap = {}; // Object to hold the game map data
-const Container = document.getElementById('game');// Get the game container element
+const Container = document.getElementById('game'); // Get the game container element
 let countdownTimer;
 let countdownElement;
 let waitingTimer = null;
@@ -58,27 +58,22 @@ function handleServerMessage(data) {
         case 'bombPlaced':
             placeBomb(data.position, data.radius);
             break;
-        case 'explosionHit':
-            console.log('Hit:', data);
-            break;
         case 'updatePlayerPosition':
             updatePlayerPosition(data.playerIndex, data.position);
             break;
         case 'updatePlayerStats':
             updatePlayerStats(data.playerIndex, data.stats);
             break;
-        case 'playerDisconnected':
-        case 'removePlayer':
-            console.log('Removing player:', data.playerIndex);
-            removePlayer(data.playerIndex);
-            checkForWinner(data.players);
-            break;
-        case 'gameOver':
-            console.log(`Game Over! Winner: ${data.winnerName}`);
-            displayWinnerMessage(data.name);
-            break;
         case 'error':
             console.error(data.message);
+            break;
+
+        case 'boostSpawned':
+            gameMap.boosts.push(data.boost);
+            gameMap.render();
+            break;
+        case 'boostCollected':
+            handleBoostCollected(data.playerIndex, data.boost);
             break;
         default:
             console.warn("Unknown message type:", data.type);
@@ -110,6 +105,7 @@ function promptPlayerName() {
         }
     });
 }
+
 
 // Function to update lobby with player information
 function updateLobby(players) {
@@ -191,6 +187,7 @@ function updateLobby(players) {
             
             playerTable.appendChild(playerRow); }); lobbyElement.appendChild(playerTable); } 
 
+            // Блок чата
             const chatBlock = createElement('div', { class: 'chat-block' });
             const chatMessages = createElement('div', { class: 'chat-messages' });
             const chatForm = createElement('form', { class: 'chat-form' });
@@ -244,7 +241,7 @@ function updateLobby(players) {
 function startWaitingPhase(checkUsersReady, startGame) {
     if (waitingTimer) return; // Прерываем, если таймер уже запущен
 
-    let waitingTimeLeft = 2; // Время ожидания двух пользователей
+    let waitingTimeLeft = 20; // Время ожидания двух пользователей
     const waitingElement = document.createElement('div');
     waitingElement.className = 'waiting';
     waitingElement.textContent = `Waiting for players: ${waitingTimeLeft}s`;
@@ -267,7 +264,7 @@ function startWaitingPhase(checkUsersReady, startGame) {
 function startCountdown() {
     if (countdownTimer) return; // Прерываем, если таймер уже запущен
 
-    let secondsLeft = 1; // Количество секунд для обратного отсчёта
+    let secondsLeft = 10; // Количество секунд для обратного отсчёта
 
     if (!countdownElement) {
         countdownElement = document.createElement('div');
@@ -320,33 +317,48 @@ function updateMap({ x, y, newValue }) {
 
 // Function to initialize the game with the received data
 function initializeGame(data) {
-    console.log('Player initializeGame data:', data);
-    Container.innerHTML = ''; // Очищаем контейнер
-    const MapContainer = createElement('div', { class: 'map-container' });
+    Container.innerHTML = '';
+    const MapContainer = createElement('div', {class: 'map-container'});
     Container.appendChild(MapContainer);
 
-    // Проверяем, существует ли HUD, и удаляем старый
-    let hudContainer = document.querySelector('.hud-container');
-    if (hudContainer) {
-        document.body.removeChild(hudContainer);
-    }
+    const hudContainer = createElement('div', { class: 'hud-container' });
+    Container.appendChild(hudContainer);
 
-    // Создаем новый HUD
-    hudContainer = createElement('div', { class: 'hud-container' });
-    document.body.appendChild(hudContainer);
-
-    sessionId = data.sessionId; // Устанавливаем ID сессии
+    sessionId = data.sessionId; // Set the session ID from the data
     gameMap = new Map(MapContainer, data.map, ws);
 
+    // Retrieve the player name from sessionStorage
     const playerName = sessionStorage.getItem('playerName');
+
+    // Create the player object with the name
     player = new Player(document.createElement('div'), 40, gameMap, ws, playerName, data.yourIndex);
 
     if (data.position) {
-        console.log('Player data.position:', data.position);
-        player.setPosition(data.position.x, data.position.y);
+        player.setPosition(data.position.x, data.position.y); // Set player position
     } else {
         console.error("Starting position not found in data.");
     }
+
+     // Create player info elements
+  data.players.forEach((playerData, index) => {
+    const playerInfo = createElement('div', { class: 'player-info' });
+    
+    const nameElement = createElement('span', { class: 'player-name' });
+    nameElement.textContent = playerData.name;
+    nameElement.style.color = playerData.color;
+    
+    const statsElement = createElement('div', { class: 'player-stats' });
+    statsElement.innerHTML = `
+      Lives: ${playerData.lives}
+      Bombs: ${playerData.bombCount}
+      Range: ${playerData.explosionRange}
+      Speed: ${playerData.speed}
+    `;
+    
+    playerInfo.appendChild(nameElement);
+    playerInfo.appendChild(statsElement);
+    hudContainer.appendChild(playerInfo);
+  });
 
     if (Array.isArray(data.players) && data.players.length > 0) {
         console.log('Player render:', data.players);
@@ -354,28 +366,8 @@ function initializeGame(data) {
     } else {
         console.warn("Players data not found or invalid during initialization.");
     }
-
-    // Добавляем HUD информацию для игроков
-    data.players.forEach((playerData, index) => {
-        const playerInfo = createElement('div', { class: 'player-info', 'data-id': index});
-
-        const nameElement = createElement('span', { class: 'player-name' });
-        nameElement.textContent = playerData.name;
-        nameElement.style.color = playerData.color;
-
-        const statsElement = createElement('div', { class: 'player-stats' });
-        statsElement.innerHTML = `
-          Lives: ${playerData.lives}
-          Bombs: ${playerData.bombCount}
-          Range: ${playerData.explosionRange}
-          Speed: ${playerData.speed}
-        `;
-
-        playerInfo.appendChild(nameElement);
-        playerInfo.appendChild(statsElement);
-        hudContainer.appendChild(playerInfo);
-    });
 }
+
 
 // Function to render all players on the map
 function renderPlayers(players, yourIndex) {
@@ -403,6 +395,9 @@ function renderPlayers(players, yourIndex) {
     }
 }
 
+
+
+
 // Function to place a bomb at the specified position
 function placeBomb(position, radius) {
     new Bomb(position.x, position.y, radius, gameMap); // Create a new bomb instance
@@ -422,6 +417,31 @@ function updatePlayerStats(playerIndex, stats) {
     }
     updateHUD();
 }
+
+function handleBoostCollected(playerIndex, boost) {
+    console.log(`Player ${playerIndex} collected boost:`, boost);
+
+    if (player && player.index === playerIndex) {
+        if (boost.type === 'speed') player.speed++;
+        if (boost.type === 'range') player.explosionRange++;
+        if (boost.type === 'bomb') player.bombCount++;
+    }
+
+    // Update the player's stats in the HUD
+    updateHUD([{ 
+        playerIndex, 
+        stats: { 
+            lives: player.lives, 
+            bombCount: player.bombCount, 
+            explosionRange: player.explosionRange, 
+            speed: player.speed 
+        } 
+    }]);
+
+    gameMap.render(); // Re-render map to reflect the removed boost
+}
+
+
 
 function updateHUD(players) {
     const hudContainer = document.querySelector('.hud-container');
@@ -456,40 +476,6 @@ function handleActiveSessions(sessions) {
         ws.send(JSON.stringify({ 
             type: 'createOrJoinGame' 
         })); // Create a new game session if no active sessions
-    }
-}
-
-function removePlayer(playerId) {
-
-    // Удалить визуальное представление игрока
-    const playerElement = document.querySelector(`.player[data-index="${playerId-1}"]`);
-    const playerHUB = document.querySelector(`.player-info[data-id="${playerId-1}"]`);
-    console.log(`playerElement: ${playerElement}`);
-    console.log(`playerHUB: ${playerHUB}`);
-    if (playerElement) {
-        playerElement.remove();
-        playerHUB.remove();
-    }
-
-    console.log(`Player ${playerId} removed from the game.`);
-}
-
-function displayWinnerMessage(winnerName) {
-    Container.innerHTML = ''; 
-    const HUB = document.querySelector('.hud-container');
-    HUB.remove();
-    const messageElement = createElement('div', { class: 'game-over-message' });
-    messageElement.textContent = `Game Over! Winner: ${winnerName}`;
-    Container.appendChild(messageElement);
-}
-
-function checkForWinner(players) {
-    const remainingPlayers = players;
-
-    if (remainingPlayers.length === 1) {
-        const winner = remainingPlayers[0];
-        ws.send(JSON.stringify({ type: 'gameOver', winnerId: winner.playerIndex }));
-        displayWinnerMessage(winner.playerName)
     }
 }
 

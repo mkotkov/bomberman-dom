@@ -221,3 +221,24 @@ th, td:first-child {
     text-align: center;
     font-size: 2rem;
 }
+
+.boost {
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    z-index: 2;
+    background-color: yellow; /* Default color */
+    border-radius: 50%;
+}
+
+.boost.speed {
+    background-color: lightblue;
+}
+
+.boost.range {
+    background-color: orange;
+}
+
+.boost.bomb {
+    background-color: red;
+}

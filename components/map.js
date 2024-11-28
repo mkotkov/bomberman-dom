@@ -1,44 +1,55 @@
 import { createElement } from "../core/dom.js";
 
 export class Map {
-    constructor(container, mapData, ws) { // Adding ws as a parameter to the constructor
+    constructor(container, mapData, ws) {
         this.container = container;
         this.mapData = mapData;
-        this.ws = ws; // Storing WebSocket for use in methods
+        this.ws = ws;
         this.tiles = [];
-        this.render(); // InitZ rendering of the map
+        this.boosts = []; // Array to track boosts on the map
+        this.render(); // Initial rendering of the map
     }
 
     render() {
-        this.tiles = []; // Clear the tiles array
+        this.container.innerHTML = ''; // Clear the container
+        this.tiles = []; // Reset the tiles array
 
-        // Iterate over each row and column in the map data
         this.mapData.forEach((row, rowIndex) => {
             row.forEach((tile, colIndex) => {
-                // Determine the tile type based on the map data value
                 const tileType = tile === 1 ? 'block' : tile === 2 ? 'wall' : 'grass';
                 const tileElement = createElement('div', {
                     class: `tile ${tileType}`,
                     style: {
-                        left: `${colIndex * 40}px`, // Positioning based on column index
-                        top: `${rowIndex * 40}px`,   // Positioning based on row index
+                        left: `${colIndex * 40}px`,
+                        top: `${rowIndex * 40}px`,
                     }
                 });
 
-                this.container.appendChild(tileElement); // Add tile to the container
-                this.tiles.push(tileElement); // Track tile element
+                this.container.appendChild(tileElement);
+                this.tiles.push(tileElement);
             });
+        });
+
+        // Render boosts explicitly
+        this.boosts.forEach(boost => {
+            const boostElement = createElement('div', {
+                class: `boost ${boost.type}`, // Boost-specific class
+                style: {
+                    left: `${boost.x * 40}px`,
+                    top: `${boost.y * 40}px`,
+                }
+            });
+
+            this.container.appendChild(boostElement);
         });
     }
 
     renderPlayer(playerIndex, x, y) {
         const existingPlayer = this.container.querySelector(`.player[data-index="${playerIndex}"]`);
         if (existingPlayer) {
-            // Update position if player already exists
             existingPlayer.style.left = `${x}px`;
             existingPlayer.style.top = `${y}px`;
         } else {
-            // Create new player element
             const playerElement = createElement('div', {
                 class: 'player',
                 'data-index': playerIndex,
@@ -48,35 +59,62 @@ export class Map {
                 }
             });
 
-            this.container.appendChild(playerElement); // Add new player to the container
+            this.container.appendChild(playerElement);
+        }
+
+        // Check if player landed on a boost
+        const boost = this.boosts.find(boost => boost.x * 40 === x && boost.y * 40 === y);
+        if (boost) {
+            this.collectBoost(playerIndex, boost);
         }
     }
 
     destroyWall(col, row) {
         if (this.canDestroyTile(col, row)) {
-            this.mapData[row][col] = 0; // Update the map on the client side
-            
-            // Update display on the screen
+            this.mapData[row][col] = 0;
+
             const tileIndex = row * this.mapData[0].length + col;
             if (this.tiles[tileIndex]) {
-                this.tiles[tileIndex].classList.remove('block'); // Change tile class
-                this.tiles[tileIndex].classList.add('grass'); // Set new tile type
+                this.tiles[tileIndex].classList.remove('block');
+                this.tiles[tileIndex].classList.add('grass');
             }
-            
-            if (this.mapData[row][col] === 2) {
-                this.mapData[row][col] = 0; // Change to empty tile
-                this.render(); // Re-render the map
-            }
-            
-            // Send a message to the server about the wall destruction
+
+            // Log the boost-spawn condition
+        if (Math.random() < 0.3) {
+            console.log('Attempting to spawn boost...');
+            this.spawnBoost(col, row);
+        }
+
+        this.render(); // Ensure the map is updated immediately
+
             if (this.ws) {
                 this.ws.send(JSON.stringify({
                     type: 'updateMap',
                     position: { x: col, y: row },
-                    newValue: 0 // New value after destruction
+                    newValue: 0
                 }));
             }
         }
+    }
+
+    spawnBoost(x, y) {
+        const boostTypes = ['speed', 'range', 'bomb'];
+        const boostType = boostTypes[Math.floor(Math.random() * boostTypes.length)];
+        const boost = { x, y, type: boostType };
+
+        this.boosts.push(boost); // Add the boost to the boosts array
+        if (this.ws) {
+            this.ws.send(JSON.stringify({ type: 'boostSpawned', boost }));
+        }
+        this.render(); // Re-render the map to show the boost
+    }
+
+    collectBoost(playerIndex, boost) {
+        this.boosts = this.boosts.filter(b => b !== boost); // Remove boost from map
+        if (this.ws) {
+            this.ws.send(JSON.stringify({ type: 'boostCollected', playerIndex, boost }));
+        }
+        this.render(); // Re-render to remove the boost
     }
 
     isWithinMapBounds(col, row) {
@@ -84,18 +122,18 @@ export class Map {
     }
 
     isTileWalkable(x, y) {
-        const row = Math.floor(y / 40); // Calculate row based on y position
-        const col = Math.floor(x / 40); // Calculate column based on x position
-        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0; // Check if tile is walkable
+        const row = Math.floor(y / 40);
+        const col = Math.floor(x / 40);
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0;
     }
 
     isPassable(x, y) {
-        const col = Math.floor(x / 40); // Calculate column based on x position
-        const row = Math.floor(y / 40); // Calculate row based on y position
-        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0; // Check if tile is passable
+        const col = Math.floor(x / 40);
+        const row = Math.floor(y / 40);
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 0;
     }
 
     canDestroyTile(col, row) {
-        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1; // Check if tile can be destroyed
+        return this.isWithinMapBounds(col, row) && this.mapData[row][col] === 1;
     }
 }
