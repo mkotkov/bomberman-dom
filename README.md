@@ -29,4 +29,4 @@ Enjoy the game!
 * sandraratasepp
 * kaichiro3
 * jlim
-* jessica
+* jessica.b
