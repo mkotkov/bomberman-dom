@@ -3,6 +3,11 @@ import { Player } from './components/player.js'; // Importing the Player class f
 import { Bomb } from './components/bomb.js'; // Importing the Bomb class for bomb management
 import { on } from './core/events.js'; // Importing the event handling function
 
+// for chat component
+import { Chat } from './components/Chat/chat.js';
+import { State } from './components/Chat/state.js';
+
+
 let player; // Variable to hold the player instance
 let ws; // Variable to hold the WebSocket connection
 let sessionId; // Variable to hold the session ID
@@ -19,6 +24,7 @@ function initializeWebSocket() {
 
     // Handle incoming messages from the server
     ws.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
+
 
     ws.onclose = () => {
         console.log('Connection closed'); // Log message when the connection is closed
@@ -53,6 +59,11 @@ function handleServerMessage(data) {
         case 'gameStart':
             console.log(data.message); // Log a message indicating the game has started
             break;
+
+        case 'CHAT_MESSAGE':
+            chat.handleMessage(data); // Handle incoming chat messages
+                break;
+
         case 'error':
             console.error(data.message); // Log any errors received from the server
             break;
