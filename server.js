@@ -20,10 +20,9 @@ class GameSession {
     }
 
      // Add this loseLife method inside the GameSession class
-    loseLife(playerIndex) {
+     loseLife(playerIndex) {
         if (this.lives[playerIndex] > 0) {
             this.lives[playerIndex]--;
-
             // Notify all players about the updated lives
             this.players.forEach(player => {
                 player.send(JSON.stringify({
@@ -32,14 +31,36 @@ class GameSession {
                     lives: this.lives[playerIndex],
                 }));
             });
-
             // Check if the player has run out of lives
             if (this.lives[playerIndex] === 0) {
                 console.log(`Player ${playerIndex + 1} is out of lives!`);
-                // Optional: Add logic for game over or disconnection
+                // Remove player from the session
+                const player = this.players[playerIndex];
+                if (player) {
+                    player.send(JSON.stringify({ type: 'gameOver', message: 'You are out of lives!' }));
+                    this.removePlayer(player);
+                }
             }
         }
     }
+
+    removePlayer(player) {
+        const index = this.players.indexOf(player);
+        if (index !== -1) {
+            this.players.splice(index, 1);
+            this.positions.splice(index, 1);
+            console.log(`Player ${index + 1} removed from session ${this.id}.`);
+            
+            // Notify remaining players
+            this.players.forEach(p => {
+                p.send(JSON.stringify({
+                    type: 'playerRemoved',
+                    playerIndex: index + 1,
+                }));
+            });
+        }
+    }
+
     generateMap() {
         const map = [
             [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
@@ -244,7 +265,26 @@ wss.on('connection', (ws) => {
             const availableSessions = gameSessions.filter(session => session.players.length < session.maxPlayers);
             ws.send(JSON.stringify({ type: 'activeSessions', sessions: availableSessions.map(session => session.id) }));
         }
+
+        if (data.type === 'updateLives') {
+            const session = gameSessions.find(session => session.id === ws.sessionId);
+            if (session) {
+                session.loseLife(data.playerIndex - 1);
+            } else {
+                console.error('Session not found for updateLives');
+            }
+        }
     });
+
+    ws.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+        switch(message.type) {
+            // ... other cases ...
+            case 'updateLives':
+                player.handleLifeUpdate(message.playerIndex, message.lives);
+                break;
+        }
+    };
     
 
     ws.on('close', () => {
@@ -253,6 +293,7 @@ wss.on('connection', (ws) => {
         if (session) {
             session.players = session.players.filter(player => player !== ws);
             session.positions = session.positions.filter((_, index) => index !== session.players.indexOf(ws));
+            session.removePlayer(ws);
     
             // We are sending updated information to all remaining players.
             session.players.forEach(p => {
@@ -266,3 +307,4 @@ wss.on('connection', (ws) => {
 });
 
 console.log('WebSocket server is running on ws://localhost:8080');
+module.exports = { wss, gameSessions };

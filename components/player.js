@@ -10,7 +10,7 @@ export class Player {
         this.speed = size; // Movement increment equals tile size
         this.x = 0; // Initial x position
         this.y = 0; // Initial y position
-        this.livesManager = new PlayerLives(3); // Initialize with 3 lives
+        this.livesManager = new PlayerLives(this, 3); // Initialize with 3 lives
         this.index = gameMap.players.length; // Index in the players array
         this.hasTakenDamage = false; // Prevent multiple damage from a single event
         this.isGameOver = false; // Tracks if the game is over for this player
@@ -100,46 +100,61 @@ export class Player {
     }
 
     // Handle the player losing a life
-    loseLife() {
-        if (!this.hasTakenDamage) { // Prevent multiple damage
-            const remainingLives = this.livesManager.loseLife();
-            console.log(`Player lost a life. Lives remaining: ${remainingLives}`);
+        loseLife() {
+            if (!this.hasTakenDamage) {
+                const remainingLives = this.livesManager.loseLife();  // Prevent multiple damage
+                console.log(`Player ${this.index + 1} lost a life. Lives remaining: ${remainingLives}`);
+    
+                // Notify the server about the updated lives
+                this.notifyServerAboutLives(remainingLives);
+    
+                if (remainingLives === 0) {
+                    console.log(`Player ${this.index + 1} has no lives left. Game over.`);
+                    this.endGame(); // Trigger the game-over state
+                }
+    
+                this.hasTakenDamage = true; // Set the damage flag
+            }
+        }
 
-            // Notify the server about the updated lives
+        notifyServerAboutLives(lives) {
             if (this.ws) {
                 this.ws.send(JSON.stringify({
                     type: 'updateLives',
                     playerIndex: this.index,
-                    lives: remainingLives
+                    lives: lives
                 }));
             }
-
-            // Update the lives display in the UI
-            this.updateLivesDisplay();
-
-            if (remainingLives === 0) {
-                console.log("Player has no lives left. Game over.");
-                this.endGame(); // Trigger the game-over state
-            }
-
-            this.hasTakenDamage = true; // Set the damage flag
         }
-    }
 
     // Update the lives display in the UI
     updateLivesDisplay() {
-        const livesDisplay = document.getElementById('lives-display'); // Ensure this ID matches your HTML
-        if (livesDisplay) {
-            const currentLives = this.livesManager.getLives();
-            livesDisplay.innerText = `Player ${this.index + 1} Lives: ${currentLives}`;
+        const livesContainer = document.getElementById('lives-container'); // Ensure this ID matches your HTML
+        if (livesContainer) {
+            // Clear existing displays
+            livesContainer.innerHTML = '';
+            // Update lives for all players
+            this.gameMap.players.forEach((player, index) => {
+                const playerLivesElement = document.createElement('div');
+                playerLivesElement.id = `player-${index}-lives`;
+                playerLivesElement.innerText = `Player ${index + 1} Lives: ${player.livesManager.getLives()}`;
+                livesContainer.appendChild(playerLivesElement);
+            });
         } else {
-            console.warn("Lives display element not found");
+            console.warn("Lives container element not found");
         }
     }
 
     // Reset the damage flag to allow taking damage again
     resetDamageFlag() {
         this.hasTakenDamage = false;
+    }
+
+    handleLifeUpdate(playerIndex, lives) {
+        const player = this.gameMap.players[playerIndex];
+        if (player) {
+            player.livesManager.setLives(lives);
+        }
     }
 
     // Handle the game-over state

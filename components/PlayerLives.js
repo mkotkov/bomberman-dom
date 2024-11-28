@@ -1,27 +1,26 @@
 // PlayerLives.js
 export class PlayerLives {
-    constructor(initialLives = 3, updateCallback) {
+    constructor(player, initialLives = 3) {
+        this.player = player;
         this.lives = initialLives;
-        this.updateCallback = updateCallback; // Store the callback function
     }
 
     loseLife() {
         if (this.lives > 0) {
             this.lives--;
-        }
-        // Call the callback with updated lives
-        if (this.updateCallback) {
-            this.updateCallback(this.lives);
+            this.updateDisplay();
         }
         return this.lives;
     }
 
     addLife() {
         this.lives++;
-        // Call the callback with updated lives
-        if (this.updateCallback) {
-            this.updateCallback(this.lives);
-        }
+        this.updateDisplay();
+    }
+
+    setLives(lives) {
+        this.lives = lives;
+        this.updateDisplay();
     }
 
     isAlive() {
@@ -30,13 +29,14 @@ export class PlayerLives {
 
     resetLives(initialLives = 3) {
         this.lives = initialLives;
-        // Call the callback with updated lives
-        if (this.updateCallback) {
-            this.updateCallback(this.lives);
-        }
+        this.updateDisplay();
     }
 
     getLives() {
         return this.lives;
+    }
+
+    updateDisplay() {
+        this.player.updateLivesDisplay();
     }
 }

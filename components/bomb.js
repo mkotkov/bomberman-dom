@@ -78,6 +78,15 @@ export class Bomb {
             if (inExplosionZone && !player.hasTakenDamage) {
                 player.loseLife();
                 player.hasTakenDamage = true; // Prevent multiple life losses from the same explosion
+            
+                                // Notify the server about the life loss
+                                if (player.ws) {
+                                    player.ws.send(JSON.stringify({
+                                        type: 'updateLives',
+                                        playerIndex: player.index,
+                                        lives: player.livesManager.getLives()
+                                    }));
+                                }
             }
         });
     
@@ -86,7 +95,6 @@ export class Bomb {
             players.forEach(player => player.resetDamageFlag());
         }, 500);
     }
-
 
 
     // Create a temporary explosion visual effect at specified map coordinates
