@@ -8,8 +8,8 @@ How to Run the Project
 Node.js and npm installed on your system.
 * Steps to Run the Game
 Clone the Repository:
-```git clone <repository-url>
-cd bomberman-dom```
+```git clone <repository-url>```
+```cd bomberman-dom```
 * Install Dependencies:
 ```npm install```
 * Start the Development Server:
