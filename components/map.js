@@ -32,15 +32,7 @@ export class Map {
 
         // Render boosts explicitly
         this.boosts.forEach(boost => {
-            const boostElement = createElement('div', {
-                class: `boost ${boost.type}`, // Boost-specific class
-                style: {
-                    left: `${boost.x * 40}px`,
-                    top: `${boost.y * 40}px`,
-                }
-            });
-
-            this.container.appendChild(boostElement);
+            this.renderBoost(boost);
         });
     }
 
@@ -80,13 +72,12 @@ export class Map {
             }
 
             // Log the boost-spawn condition
-        if (Math.random() < 0.3) {
-            console.log('Attempting to spawn boost...');
-            this.spawnBoost(col, row);
-        }
+            if (Math.random() < 0.3) {
+                console.log('Attempting to spawn boost...');
+                this.spawnBoost(col, row);
+            }
 
-        this.render(); // Ensure the map is updated immediately
-
+            // No need to call this.render() immediately, optimize to re-render only the relevant parts
             if (this.ws) {
                 this.ws.send(JSON.stringify({
                     type: 'updateMap',
@@ -100,13 +91,25 @@ export class Map {
     spawnBoost(x, y) {
         const boostTypes = ['speed', 'range', 'bomb'];
         const boostType = boostTypes[Math.floor(Math.random() * boostTypes.length)];
-        const boost = { x, y, type: boostType };
+        const boost = { x, y, type: boostType, id: `${x}-${y}-${boostType}` }; // Add unique ID to each boost
 
         this.boosts.push(boost); // Add the boost to the boosts array
         if (this.ws) {
             this.ws.send(JSON.stringify({ type: 'boostSpawned', boost }));
         }
-        this.render(); // Re-render the map to show the boost
+        this.renderBoost(boost); // Render the new boost
+    }
+
+    renderBoost(boost) {
+        const boostElement = createElement('div', {
+            class: `boost ${boost.type}`,
+            'data-boost-id': boost.id, // Add the boost id for unique identification
+            style: {
+                left: `${boost.x * 40}px`,
+                top: `${boost.y * 40}px`,
+            }
+        });
+        this.container.appendChild(boostElement);
     }
 
     collectBoost(playerIndex, boost) {
@@ -114,7 +117,11 @@ export class Map {
         if (this.ws) {
             this.ws.send(JSON.stringify({ type: 'boostCollected', playerIndex, boost }));
         }
-        this.render(); // Re-render to remove the boost
+        // Instead of re-rendering the whole map, just remove the boost element from the DOM
+        const boostElement = this.container.querySelector(`.boost[data-boost-id="${boost.id}"]`);
+        if (boostElement) {
+            boostElement.remove();
+        }
     }
 
     isWithinMapBounds(col, row) {
