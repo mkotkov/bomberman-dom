@@ -14,6 +14,7 @@ let countdownElement;
 let waitingTimer = null;
 let waitingTimerActive = false;
 
+
 let lastTimestamp = 0;
 
 function gameLoop(timestamp) {
@@ -35,7 +36,7 @@ function gameLoop(timestamp) {
 
 // Function to initialize the WebSocket connection
 function initializeWebSocket() {
-    ws = new WebSocket('ws://localhost:8080'); // Create a new WebSocket connection
+    ws = new WebSocket('https://animated-meme-q7r5v4679xpfxqvr-8080.app.github.dev'); // Create a new WebSocket connection
 
     ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'getActiveSessions' })); // Request active sessions when connection opens
@@ -82,7 +83,7 @@ function handleServerMessage(data) {
             break;
         case 'updatePlayerStats':
             console.log('Game update Player Stats:', data);
-            updatePlayerStats(data.playerIndex, data.stats);
+            updatePlayerStats(data);
             break;
         case 'playerDisconnected':
         case 'removePlayer':
@@ -182,7 +183,7 @@ function updateLobby(players) {
             
             // Bombs
             const bombsCell = createElement('td');
-            bombsCell.textContent = player.bombCount || 1; // Default value
+            bombsCell.textContent = player.bombCount || 5; // Default value
             
             // Range
             const rangeCell = createElement('td');
@@ -257,7 +258,6 @@ function updateLobby(players) {
                 }
 }
 
-
 function startWaitingPhase(checkUsersReady, startGame) {
     if (waitingTimer) return; // Прерываем, если таймер уже запущен
 
@@ -328,9 +328,6 @@ function startGame() {
     requestAnimationFrame(gameLoop);
 }
 
-
-
-
 // Function to update the game map based on server data
 function updateMap({ x, y, newValue }) {
     gameMap.mapData[x][y] = newValue; // Update the map data at the specified coordinates
@@ -360,7 +357,7 @@ function initializeGame(data) {
     gameMap = new Map(MapContainer, data.map, ws);
 
     const playerName = sessionStorage.getItem('playerName');
-    player = new Player(document.createElement('div'), 40, gameMap, ws, playerName, data.yourIndex);
+    player = new Player(document.createElement('div'), 40, gameMap, ws, playerName, data.yourIndex, data.players.lives);
 
     if (data.position) {
         console.log('Player data.position:', data.position);
@@ -434,37 +431,66 @@ function updatePlayerPosition(playerIndex, position) {
     gameMap.renderPlayer(playerIndex, position.x, position.y); // Render the updated player position
 }
 
-function updatePlayerStats(playerIndex, stats) {
-    if (player && player.index === playerIndex) {
-        player.lives = stats.lives;
-        player.bombCount = stats.bombCount;
-        player.explosionRange = stats.explosionRange;
-        player.speed = stats.speed;
-    }
-    updateHUD();
-}
-
-function updateHUD(players) {
-    const hudContainer = document.querySelector('.hud-container');
-    hudContainer.innerHTML = ''; // Clear existing HUD content
-    if (!hudContainer) return;
-
-    players.forEach(playerData => {
-        const playerInfo = hudContainer.querySelector(`.player-info[data-index="${player.index}"]`);
+function updatePlayerStats(data) {
+    // Пройдемся по каждому игроку в массиве данных
+    console.log(data.stats)
+    data.stats.forEach(playerData => {
+        // Ищем соответствующий элемент игрока по data-id
+        const playerInfo = document.querySelector(`.player-info[data-id="${playerData.playerIndex-1}"]`);
+        
         if (playerInfo) {
             const statsElement = playerInfo.querySelector('.player-stats');
-            statsElement.innerHTML = `
-                Lives: ${player.lives}
-                Bombs: ${player.bombCount}
-                Range: ${player.explosionRange}
-                Speed: ${player.speed}
-        `;
+            if (statsElement) {
+                statsElement.innerHTML = `
+                    Lives: ${playerData.lives}
+                    Bombs: ${playerData.bombCount}
+                    Range: ${playerData.explosionRange}
+                    Speed: ${playerData.speed}
+                `;
+            }
 
-        playerInfo.appendChild(nameElement);
-        playerInfo.appendChild(statsElement);
-        hudContainer.appendChild(playerInfo);
-    }});
+            // Обновляем имя игрока и цвет, если нужно
+            const nameElement = playerInfo.querySelector('.player-name');
+            if (nameElement) {
+                nameElement.textContent = playerData.playerName;  // Обновляем имя игрока
+                nameElement.style.color = playerData.color;  // Устанавливаем цвет
+            }
+        }
+    });
 }
+
+
+
+// function updateHUD(players) {
+//     const hudContainer = document.querySelector('.hud-container');
+//     if (!hudContainer) return;
+    
+//     // Очищаем текущие данные в HUD
+//     hudContainer.innerHTML = ''; 
+    
+//     players.forEach(player => {
+//         // Находим элемент игрока по data-id
+//         const playerInfo = document.querySelector(`.player-info[data-id="${player.index}"]`);
+//         if (playerInfo) {
+//             // Обновляем информацию об игроке
+//             const statsElement = playerInfo.querySelector('.player-stats');
+//             if (statsElement) {
+//                 statsElement.innerHTML = `
+//                     Lives: ${player.lives}
+//                     Bombs: ${player.bombCount}
+//                     Range: ${player.explosionRange}
+//                     Speed: ${player.speed}
+//                 `;
+//             }
+
+//             // Обновляем имя игрока
+//             const nameElement = playerInfo.querySelector('.player-name');
+//             if (nameElement) {
+//                 nameElement.textContent = player.name;  // Предполагаем, что name уже есть в данных игрока
+//             }
+//         }
+//     });
+// }
 
 // Function to handle active game sessions
 function handleActiveSessions(sessions) {
@@ -522,7 +548,10 @@ on(document, 'keydown', (event) => {
 
         // Check if the spacebar is pressed to place a bomb
         if (event.key === ' ') {
-            player.placeBomb(); // Place a bomb
+            if(player.bombCount>0){
+                player.placeBomb();
+              player.bombCount--;
+            }
         }
 
         // If the player's position has changed, notify the server

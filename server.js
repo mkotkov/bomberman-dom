@@ -64,7 +64,7 @@ class GameSession {
             player.playerIndex = playerIndex + 1;
             player.color = ['blue', 'red', 'green', 'yellow'][playerIndex];
             player.lives = 3;
-            player.bombCount = 1;
+            player.bombCount = 5;
             player.explosionRange = 1;
             player.speed = 1;
 
@@ -176,20 +176,26 @@ class GameSession {
         if (this.players.length === 1) {
             const winner = this.players[0];
             console.log(`Game Over! Winner: ${winner.playerName}`);
-            this.broadcastToPlayers({
-                type: 'gameOver',
-                winner: {
-                    name: winner.playerName,
-                    color: winner.color,
-                },
-            });
-            this.players.forEach(player => player.close());
+            
+            // Отправляем сообщение всем игрокам о завершении игры
+            this.players.forEach(player => {
+                player.send(JSON.stringify({
+                    type: 'gameOver',
+                    winner: {
+                        name: winner.playerName,
+                        color: winner.color,
+                    }
+                }));
+                player => player.close()
+            });  
+
+            // Удаляем сессию из списка активных сессий
             const index = gameSessions.indexOf(this);
             if (index !== -1) {
                 gameSessions.splice(index, 1);
             }
         }
-    }
+    }    
 }
 
 const wss = new WebSocket.Server({ port: 8080 });
@@ -308,39 +314,37 @@ wss.on('connection', (ws) => {
 
             case 'placeBomb': {
                 console.log(`Received 'placeBomb' event with data:`, data);
-            
                 const bombData = {
                     type: 'bombPlaced',
                     position: data.position,
-                    radius: data.radius
+                    radius: data.radius,
+                    index: data.index,
                 };
-            
                 console.log(`Bomb placed at position (${bombData.position.x}, ${bombData.position.y}) with radius ${bombData.radius}`);
-            
+               
+
                 const session = gameSessions.find(session => session.id === ws.sessionId);
-            
                 if (session) {
                     console.log(`Session found for bomb placement. Session ID: ${ws.sessionId}`);
-            
+                    
                     session.players.forEach(player => {
                         const playerIndex = session.players.indexOf(player);
                         const playerPosition = session.positions[playerIndex];
-            
+                        if(playerIndex == data.index-1){
+                            console.log('Session bombCount:', player.bombCount);
+                            player.bombCount -= 1; 
+                        }
                         console.log(`Checking player ${player.playerName} at position (${playerPosition.x}, ${playerPosition.y})`);
-            
                         // Вычисление расстояния между игроком и взрывом
                         const dx = playerPosition.x - (bombData.position.x*40);
                         const dy = playerPosition.y - (bombData.position.y*40);
                         const distance = Math.sqrt(dx * dx + dy * dy);
                         
                         console.log(`Distance from bomb to player ${player.playerName}: ${distance}`);
-            
                         // Проверка попадания в радиус взрыва
                         if (distance <= bombData.radius * 40) { // 40 — размер клетки (например)
                             player.lives -= 1; // Уменьшаем количество жизней
                             console.log(`Player ${player.playerName} hit! Lives left: ${player.lives}`);
-                            
-                            // Проверяем, остались ли у игрока жизни
                             if (player.lives <= 0) {
                                 console.log(`Player ${player.playerName} eliminated!`);
                                 session.removePlayer(player);
@@ -349,13 +353,15 @@ wss.on('connection', (ws) => {
                             console.log(`Player ${player.playerName} is safe from the explosion.`);
                         }
                     });
-            
-                    console.log(`Broadcasting bomb explosion to players in session ${ws.sessionId}`);
-                    session.broadcastToPlayers({
-                        type: 'bombExploded',
-                        position: bombData.position,
-                        radius: bombData.radius,
-                    });
+
+                    setTimeout(() => {
+                        session.players.forEach(player => {
+                            player.send(JSON.stringify({
+                                type: 'updatePlayerStats',
+                                stats: session.players
+                            }));
+                        });
+                    }, 3000);
             
                     session.players.forEach(player => {
                         player.send(JSON.stringify(bombData));
@@ -380,11 +386,13 @@ wss.on('connection', (ws) => {
                         player.explosionRange = stats.explosionRange;
                         player.speed = stats.speed;
             
-                        session.broadcastToPlayers({
+                        session.players.forEach(player => {
+                            player.send(JSON.stringify({
                             type: 'updatePlayerStats',
                             playerIndex,
-                            stats
-                        });
+                            stats: session.players
+                        }));
+                    });
                     }
                 }
                 break;

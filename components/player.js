@@ -12,7 +12,7 @@ export class Player {
 
         // Stats
         this.lives = 3; // Placeholder for lives logic (to be implemented by teammates)
-        this.bombCount = 1; // Placeholder for bomb count logic (to be implemented by teammates)
+        this.bombCount = 5; // Placeholder for bomb count logic (to be implemented by teammates)
         this.explosionRange = 1; // Placeholder for explosion range logic (to be implemented by teammates)
 
         this.x = 0; // Initial x-coordinate position
@@ -34,7 +34,7 @@ export class Player {
     placeBomb() {
         const col = Math.floor(this.x / 40); // Calculate column based on x-position
         const row = Math.floor(this.y / 40); // Calculate row based on y-position
-        const bomb = new Bomb(col, row, 1, this.gameMap); // Create a new bomb at the player's position
+        // const bomb = new Bomb(col, row, 1, this.gameMap); // Create a new bomb at the player's position
 
         // Sending bomb placement event to the server
         if (this.ws) {
@@ -42,10 +42,18 @@ export class Player {
                 type: 'placeBomb',
                 position: { x: col, y: row },
                 radius: 1,
+                index: this.index,
             }));
 
             this.ws.send(JSON.stringify({
-                type: 'updatePlayerStats'
+                type: 'updatePlayerStats',
+                index: this.index,
+                stats: {
+                    lives: this.lives,
+                    bombCount: this.bombCount,
+                    explosionRange: this.explosionRange,
+                    speed: this.speed
+                },
             }));
         }
         
