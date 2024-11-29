@@ -36,7 +36,7 @@ function gameLoop(timestamp) {
 
 // Function to initialize the WebSocket connection
 function initializeWebSocket() {
-    ws = new WebSocket('https://animated-meme-q7r5v4679xpfxqvr-8080.app.github.dev'); // Create a new WebSocket connection
+    ws = new WebSocket('ws://localhost:8080'); // Create a new WebSocket connection
 
     ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'getActiveSessions' })); // Request active sessions when connection opens
@@ -61,16 +61,19 @@ function handleServerMessage(data) {
             break;
         case 'sessionUpdate':
             console.log('Session Update:', data);
-            updateLobby(data.players); // Pass updated players info to updateLobby
+            updateLobbyAndChat(data.players); // Pass updated players info to updateLobby
             break; // Добавьте break, чтобы избежать попадания в следующие случаи
         case 'gameCreated':
         case 'joinedExistingGame':
             console.log('Session Update:', data);
-            updateLobby(data.players);
+            updateLobbyAndChat(data.players);
             break;
         case 'gameStart':
             console.log('Game Start:', data);
             initializeGame(data);
+            break;
+        case 'chatMessage':
+            displayChatMessage(data.sender, data.message);
             break;
         case 'mapUpdate':
             updateMap(data);
@@ -130,138 +133,164 @@ function promptPlayerName() {
 }
 
 // Function to update lobby with player information
-function updateLobby(players) {
-    Container.innerHTML = ''; // Clear container
-    const lobbyElement = Container;
+function renderLobby(players) {
+    const lobbyContainer = createElement('div', { class: 'lobby-container' });
+    lobbyContainer.innerHTML = ''; // Clear existing content
 
-    if (lobbyElement) {
-        lobbyElement.innerHTML = ''; // Clear existing content
+    const playerTable = createElement('table');
+    const tableHeader = createElement('tr');
 
-        // Create table for players
-        const playerTable = createElement('table');
-        const tableHeader = createElement('tr');
-        
-        ['#', 'Name', 'Color', 'Lives', 'Bombs', 'Range', 'Speed', 'Position'].forEach(headerText => {
-            const th = createElement('th');
-            th.textContent = headerText;
-            tableHeader.appendChild(th);
-        });
-        
-        playerTable.appendChild(tableHeader);
+    ['#', 'Name', 'Color', 'Lives', 'Bombs', 'Range', 'Speed', 'Position'].forEach(headerText => {
+        const th = createElement('th');
+        th.textContent = headerText;
+        tableHeader.appendChild(th);
+    });
 
-        // Define positions for players
-        const positions = [
-            'Top left corner',
-            'Top right corner',
-            'Bottom left corner',
-            'Bottom right corner'
-        ];
+    playerTable.appendChild(tableHeader);
 
-        // Add players to table
-        players
-            .filter(player => player.name && player.name.trim() !== '')
-            .forEach((player, index) => {
+    const positions = [
+        'Top left corner',
+        'Top right corner',
+        'Bottom left corner',
+        'Bottom right corner'
+    ];
+
+    players
+        .filter(player => player.name && player.name.trim() !== '')
+        .forEach((player, index) => {
             const playerRow = createElement('tr');
 
-            // Index
             const indexCell = createElement('td');
             indexCell.textContent = `${index + 1}`;
-            
-            // Name
             const nameCell = createElement('td');
             nameCell.textContent = player.name;
-            
-            // Color
+
             const colorCell = createElement('td');
-            colorCell.style.backgroundColor = player.color; // Use player's color
+            colorCell.style.backgroundColor = player.color;
             colorCell.style.width = '20px';
             colorCell.style.height = '20px';
-            
-            // Lives
+
             const livesCell = createElement('td');
-            livesCell.textContent = player.lives || 3; // Default value
-            
-            // Bombs
+            livesCell.textContent = player.lives || 3;
+
             const bombsCell = createElement('td');
-            bombsCell.textContent = player.bombCount || 5; // Default value
-            
-            // Range
+            bombsCell.textContent = player.bombCount || 5;
+
             const rangeCell = createElement('td');
-            rangeCell.textContent = player.explosionRange || 1; // Default value
-            
-            // Speed
+            rangeCell.textContent = player.explosionRange || 1;
+
             const speedCell = createElement('td');
-            speedCell.textContent = player.speed || 1; // Default value
-            
-            // Position
+            speedCell.textContent = player.speed || 1;
+
             const positionCell = createElement('td');
             positionCell.textContent = positions[index] || 'Position not set';
-            
-            playerRow.appendChild(indexCell);
-            playerRow.appendChild(nameCell);
-            playerRow.appendChild(colorCell);
-            playerRow.appendChild(livesCell);
-            playerRow.appendChild(bombsCell);
-            playerRow.appendChild(rangeCell);
-            playerRow.appendChild(speedCell);
-            playerRow.appendChild(positionCell);
 
-            
-            playerTable.appendChild(playerRow); }); lobbyElement.appendChild(playerTable); } 
+            playerRow.append(
+                indexCell,
+                nameCell,
+                colorCell,
+                livesCell,
+                bombsCell,
+                rangeCell,
+                speedCell,
+                positionCell
+            );
 
-            const chatBlock = createElement('div', { class: 'chat-block' });
-            const chatMessages = createElement('div', { class: 'chat-messages' });
-            const chatForm = createElement('form', { class: 'chat-form' });
-            const chatInput = createElement('input', { class: 'chat-input', type: 'text', placeholder: 'Enter your message' });
-            const sendButton = createElement('button', { type: 'submit' });
-            sendButton.textContent = 'Send';
+            playerTable.appendChild(playerRow);
+        });
 
-            chatForm.appendChild(chatInput);
-            chatForm.appendChild(sendButton);
+    lobbyContainer.appendChild(playerTable);
+    return lobbyContainer;
+}
 
-            chatBlock.appendChild(chatMessages);
-            chatBlock.appendChild(chatForm);
-            lobbyElement.appendChild(chatBlock);
+function renderChat(players) {
+    console.log("players---", players)
+    const chatContainer = createElement('div', { class: 'chat-container' });
 
-            on(chatForm, 'submit', (e) => {
-                e.preventDefault();
-                const message = chatInput.value.trim();
-                const sender = players.find(player => player.name && player.name.trim() !== '');
-                if (message && sender) {
-                    const messageElement = createElement('div');
-                    messageElement.textContent = `${sender.name}: ${message}`;
-                    chatMessages.appendChild(messageElement);
-                    chatInput.value = '';
-                    chatMessages.scrollTop = chatMessages.scrollHeight; // Скролл к последнему сообщению
-                }
-            });
+    const chatMessages = createElement('div', { class: 'chat-messages' });
+    const chatForm = createElement('form', { class: 'chat-form' });
+    const chatInput = createElement('input', {
+        class: 'chat-input',
+        type: 'text',
+        placeholder: 'Enter your message',
+    });
+    const sendButton = createElement('button', { type: 'submit' });
+    sendButton.textContent = 'Send';
 
-            // Проверяем количество игроков и их имена
-            const allPlayersHaveNames = players.every(player => player.name && player.name.trim() !== '');
-            const hasEnoughPlayers = players.length >= 1;
+    chatForm.append(chatInput, sendButton);
+    chatContainer.append(chatMessages, chatForm);
 
-            // Условие для запуска ожидания
-            if (hasEnoughPlayers && allPlayersHaveNames && !waitingTimerActive) {
-                waitingTimerActive = true;
-                startWaitingPhase(
-                    () => players.length >= 4 && allPlayersHaveNames, 
-                    () => {
-                        waitingTimerActive = false; 
-                        console.log('Game Started!');
-                    }
-                );
-            } 
+    players.forEach(player => {
+        if (player.name) {
+            const messageElement = createElement('div', { class: 'chat-message' });
+            messageElement.textContent = `Player ${player.name} has joined the chat.`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            player.messageDisplayed = true;
+        }
+    });
 
-            else if (!hasEnoughPlayers || !allPlayersHaveNames) {
+
+    sendButton.addEventListener('click', (event) => {
+        event.preventDefault(); // Prevent form submission from reloading the page
+        const message = chatInput.value.trim();
+        if (message) {
+            const playerName = sessionStorage.getItem('playerName');
+            ws.send(JSON.stringify({
+                type: 'chatMessage',
+                sender: playerName, // Replace with the actual sender name
+                message: message,
+            }));
+            chatInput.value = ''; // Clear the input field after sending the message
+        }
+    });
+
+
+    return chatContainer;
+}
+
+function updateLobbyAndChat(players, ws) {
+    Container.innerHTML = ''; // Clear container
+
+    const lobbyContent = renderLobby(players);
+    const chatContent = renderChat(players, ws);
+
+    // Append both sections to the main container
+    Container.append(lobbyContent, chatContent);
+
+    // Additional logic for starting the game
+    const allPlayersHaveNames = players.every(player => player.name && player.name.trim() !== '');
+    const hasEnoughPlayers = players.length >= 2;
+
+    if (hasEnoughPlayers && allPlayersHaveNames && !waitingTimerActive) {
+        waitingTimerActive = true;
+        startWaitingPhase(
+            () => players.length >= 4 && allPlayersHaveNames,
+            () => {
                 waitingTimerActive = false;
-                stopCountdown(); 
-                }
+                console.log('Game Started!');
+            }
+        );
+    } else if (!hasEnoughPlayers || !allPlayersHaveNames) {
+        waitingTimerActive = false;
+        stopCountdown();
+    }
+}
+
+function displayChatMessage(sender, message) {
+    const chatMessages = document.querySelector('.chat-messages');
+    if (chatMessages) {
+        const messageElement = createElement('div', { class: 'chat-message' });
+        messageElement.textContent = `${sender}: ${message}`;
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight; 
+    }
 }
 
 function startWaitingPhase(checkUsersReady, startGame) {
     if (waitingTimer) return; // Прерываем, если таймер уже запущен
 
-    let waitingTimeLeft = 2; // Время ожидания двух пользователей
+    let waitingTimeLeft = 30; // Время ожидания двух пользователей
     const waitingElement = document.createElement('div');
     waitingElement.className = 'waiting';
     waitingElement.textContent = `Waiting for players: ${waitingTimeLeft}s`;
@@ -284,7 +313,7 @@ function startWaitingPhase(checkUsersReady, startGame) {
 function startCountdown() {
     if (countdownTimer) return; // Прерываем, если таймер уже запущен
 
-    let secondsLeft = 1; // Количество секунд для обратного отсчёта
+    let secondsLeft = 10; // Количество секунд для обратного отсчёта
 
     if (!countdownElement) {
         countdownElement = document.createElement('div');

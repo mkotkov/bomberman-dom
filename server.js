@@ -373,6 +373,18 @@ wss.on('connection', (ws) => {
                 break;
             }
             
+            case 'chatMessage': {
+                const session = gameSessions.find(session => session.id === ws.sessionId);
+                if (session) {
+                session.players.forEach(player => {
+                            player.send(JSON.stringify({
+                                type: 'chatMessage',
+                                sender: data.sender,
+                                message: data.message,
+                            }));
+                    });
+                }
+            }
             
 
             case 'updatePlayerStats': {
