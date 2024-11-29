@@ -40,9 +40,15 @@ export class Player {
         if (this.ws) {
             this.ws.send(JSON.stringify({
                 type: 'placeBomb',
-                position: { x: col, y: row }
+                position: { x: col, y: row },
+                radius: 1,
+            }));
+
+            this.ws.send(JSON.stringify({
+                type: 'updatePlayerStats'
             }));
         }
+        
     }
 
     updatePosition() {
@@ -79,20 +85,34 @@ export class Player {
     
       // Placeholder method for handling power-ups
       applyPowerUp(type) {
-        switch(type) {
+        switch (type) {
             case 'speed':
-                // Logic to increase player speed will go here
+                this.updateSpeed(this.speed + 1); // Пример: увеличиваем скорость
                 break;
             case 'bombCount':
-                // Logic to increase bomb count will go here
+                this.updateBombCount(this.bombCount + 1); // Пример: увеличиваем количество бомб
                 break;
             case 'explosionRange':
-                // Logic to increase explosion range will go here
+                this.updateExplosionRange(this.explosionRange + 1); // Пример: увеличиваем радиус взрыва
                 break;
             default:
                 console.warn("Unknown power-up type:", type);
         }
-      }
+    
+        if (this.ws) {
+            this.ws.send(JSON.stringify({
+                type: 'updatePlayerStats',
+                stats: {
+                    lives: this.lives,
+                    bombCount: this.bombCount,
+                    explosionRange: this.explosionRange,
+                    speed: this.speed
+                },
+                playerIndex: this.index
+            }));
+        }
+    }
+    
 
       // Placeholder method for updating lives
     updateLives() {

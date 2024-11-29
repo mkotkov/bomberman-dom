@@ -369,26 +369,27 @@ wss.on('connection', (ws) => {
             
             
 
-            case 'updatePlayerStats':
+            case 'updatePlayerStats': {
                 const { playerIndex, stats } = data;
                 const session = gameSessions.find(session => session.id === ws.sessionId);
-                    if (session) {
-                        const player = session.players[playerIndex];
-                        if (player) {
+                if (session) {
+                    const player = session.players[playerIndex];
+                    if (player) {
                         player.lives = stats.lives;
                         player.bombCount = stats.bombCount;
                         player.explosionRange = stats.explosionRange;
                         player.speed = stats.speed;
-
+            
                         session.broadcastToPlayers({
                             type: 'updatePlayerStats',
                             playerIndex,
                             stats
-            });
-        }
-    }
-    break;
-
+                        });
+                    }
+                }
+                break;
+            }
+            
             default:
                 console.error('Unknown message type:', data.type);
                 break;

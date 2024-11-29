@@ -6,7 +6,7 @@ export class Bomb {
         this.mapInstance = mapInstance; // Reference to the map
 
         this.renderBomb(); // Render bomb on the map
-
+        this.onExplode = null;
         // Explosion timer
         this.timer = setTimeout(() => this.explode(), 3000);
     }

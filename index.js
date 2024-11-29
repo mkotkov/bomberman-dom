@@ -14,6 +14,25 @@ let countdownElement;
 let waitingTimer = null;
 let waitingTimerActive = false;
 
+let lastTimestamp = 0;
+
+function gameLoop(timestamp) {
+    const deltaTime = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    // Обновляем состояние игрока
+    player.update(deltaTime);
+
+    // Обновляем карту
+    gameMap.update(deltaTime);
+
+    // Рендерим всё
+    gameMap.render();
+
+    requestAnimationFrame(gameLoop);
+}
+
+
 // Function to initialize the WebSocket connection
 function initializeWebSocket() {
     ws = new WebSocket('ws://localhost:8080'); // Create a new WebSocket connection
@@ -58,13 +77,11 @@ function handleServerMessage(data) {
         case 'bombPlaced':
             placeBomb(data.position, data.radius);
             break;
-        case 'explosionHit':
-            console.log('Hit:', data);
-            break;
         case 'updatePlayerPosition':
             updatePlayerPosition(data.playerIndex, data.position);
             break;
         case 'updatePlayerStats':
+            console.log('Game update Player Stats:', data);
             updatePlayerStats(data.playerIndex, data.stats);
             break;
         case 'playerDisconnected':
@@ -74,8 +91,8 @@ function handleServerMessage(data) {
             checkForWinner(data.players);
             break;
         case 'gameOver':
-            console.log(`Game Over! Winner: ${data.winnerName}`);
-            displayWinnerMessage(data.name);
+            console.log(`Game Over! Winner: ${data.name}`);
+            displayWinnerMessage(data.winner.name);
             break;
         case 'error':
             console.error(data.message);
@@ -308,7 +325,11 @@ function stopCountdown() {
 function startGame() {
     console.log("Starting the game...");
     ws.send(JSON.stringify({ type: 'startGame' }));
+    requestAnimationFrame(gameLoop);
 }
+
+
+
 
 // Function to update the game map based on server data
 function updateMap({ x, y, newValue }) {
